@@ -52,7 +52,7 @@ if scan_btn and repo_url and api_key:
             scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
             
             # --- 🔍 DEBUG MODE (ADD THIS BLOCK) ---
-            with st.expander("VIEW RAW SCANNER DATA (Click to Debug)", expanded=True):
+            with st.expander("VIEW RAW SCANNER DATA (Click to Debug)", expanded=False):
                 st.code(scan_data, language='json')
             # -------------------------------------
 
@@ -127,6 +127,7 @@ if scan_btn and repo_url and api_key:
 elif scan_btn and not api_key:
 
     st.warning("Please provide a Gemini API Key to proceed.")
+
 
 
 
