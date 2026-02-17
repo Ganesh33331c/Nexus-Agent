@@ -2,7 +2,6 @@ import streamlit as st
 import google.generativeai as genai
 import nexus_agent_logic
 import os
-import importlib.metadata
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
@@ -12,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (Cursor Fix + Professional UI) ---
+# --- 2. CUSTOM CSS (Transparent Glass + Visible Text) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
@@ -83,25 +82,31 @@ st.markdown("""
         letter-spacing: 2px;
     }
 
-    /* INPUT FIELD */
+    /* --- TRANSPARENT ENTRY FIELD (The Fix) --- */
     .stTextInput > div > div > input {
-        background-color: #ffffff !important;
-        border: 2px solid #e2e8f0;
-        color: #0f172a !important;
-        font-weight: 500;
-        border-radius: 12px;
-        padding: 15px 20px;
-        font-size: 16px;
-        text-align: left;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        background-color: rgba(255, 255, 255, 0.2) !important; /* See-through */
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        color: #ffffff !important; /* BRIGHT WHITE TEXT */
+        font-weight: 600;
+        border-radius: 15px;
+        padding: 25px 20px;
+        font-size: 18px;
+        text-align: center;
+        backdrop-filter: blur(8px); /* Frost effect */
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.8);
     }
     
     .stTextInput > div > div > input:focus {
-        border-color: #2563eb;
-        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+        background-color: rgba(255, 255, 255, 0.3);
+        border-color: #ffffff;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
     }
 
-    /* SUBMIT BUTTON (Cursor Fix) */
+    /* SUBMIT BUTTON */
     .stButton > button {
         width: 100%;
         background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
@@ -114,7 +119,7 @@ st.markdown("""
         transition: all 0.3s ease;
         font-size: 1.1rem;
         margin-top: 5px;
-        cursor: pointer !important; /* Forces the "Hand" cursor */
+        cursor: pointer !important;
     }
     
     .stButton > button:hover {
@@ -171,13 +176,6 @@ if scan_btn and repo_url:
     
     with st.status("⚙️ **NEXUS CORE ACTIVE**", expanded=True) as status:
         
-        # VERSION CHECK
-        try:
-            lib_ver = importlib.metadata.version("google-generativeai")
-            st.write(f"ℹ️ Library Version: {lib_ver}")
-        except:
-            st.write("ℹ️ Library Version: Unknown")
-            
         st.write("📡 Scanning Repository Manifest...")
         scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
         
@@ -186,67 +184,57 @@ if scan_btn and repo_url:
             
         st.write("🛡️ Cross-referencing CVE Database...")
         
-        # --- 🔍 DEBUGGER MODEL SELECTOR ---
+        # --- 🔍 AUTO-DISCOVERY MODEL FINDER (The Fix) ---
         response = None
-        used_model = None
-        error_log = [] # Capture actual errors
+        used_model = "Unknown"
         
-        models_to_try = [
-            'gemini-1.5-flash',
-            'gemini-pro',
-            'gemini-1.5-pro-latest'
-        ]
+        try:
+            # 1. Ask Google: "What models can I use?"
+            all_models = list(genai.list_models())
+            
+            # 2. Filter for models that can generate text
+            available_models = [m.name for m in all_models if 'generateContent' in m.supported_generation_methods]
+            
+            if not available_models:
+                st.error("❌ Critical: Your API Key has NO access to any text models.")
+                st.stop()
+                
+            # 3. Pick the best available one (Prefer Flash, then Pro)
+            # This logic prevents guessing names that don't exist
+            if any('flash' in m for m in available_models):
+                used_model = next(m for m in available_models if 'flash' in m)
+            elif any('pro' in m for m in available_models):
+                used_model = next(m for m in available_models if 'pro' in m)
+            else:
+                used_model = available_models[0] # Take whatever is first
+            
+            # 4. Run the model
+            model = genai.GenerativeModel(used_model)
+            
+            prompt = f"""
+            You are Nexus, a DevSecOps AI.
+            Analyze this repository scan: {scan_data}
+            
+            Task:
+            1. Identify critical vulnerabilities.
+            2. Explain the risk.
+            3. Provide remediation.
+            4. Output a professional HTML report using Tailwind CSS. 
+            5. Design the report to be clean, white, and corporate.
+            """
+            
+            response = model.generate_content(prompt)
         
-        for m_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(m_name)
-                prompt = f"Analyze this scan and list vulnerabilities: {scan_data}"
-                response = model.generate_content(prompt)
-                used_model = m_name
-                break 
-            except Exception as e:
-                error_log.append(f"{m_name} failed: {str(e)}") # LOG THE REAL ERROR
-                continue 
+        except Exception as e:
+            st.error(f"❌ API Connection Failed: {e}")
+            st.info("💡 Hint: If this says 'ListModels failed', your API Key might be invalid.")
+            st.stop()
         
         if response:
-            # IT WORKED! Generate the full report now
-            try:
-                full_prompt = f"""
-                You are Nexus, a DevSecOps AI.
-                Analyze this repository scan: {scan_data}
-                
-                Task:
-                1. Identify critical vulnerabilities.
-                2. Explain the risk.
-                3. Provide remediation.
-                4. Output a professional HTML report using Tailwind CSS. 
-                5. Design the report to be clean, white, and corporate.
-                """
-                report_html = response.text # Use previous response or regenerate
-                if "<html>" not in report_html: # If first response was short, regenerate
-                     report_html = model.generate_content(full_prompt).text
-
-                if "```html" in report_html:
-                    report_html = report_html.replace("```html", "").replace("```", "")
-                
-                status.update(label=f"✅ **AUDIT COMPLETE ({used_model})**", state="complete", expanded=False)
-                st.markdown("### 📊 VULNERABILITY REPORT")
-                st.components.v1.html(report_html, height=800, scrolling=True)
-            except Exception as e:
-                st.error(f"Report Generation Failed: {e}")
-
-        else:
-            # FAILURE - SHOW THE REAL REASON
-            st.error("❌ CRITICAL ERROR: API Key Rejected.")
-            st.error("👇 READ THE ERROR LOG BELOW TO FIX IT:")
-            for err in error_log:
-                st.warning(err)
+            report_html = response.text
+            if "```html" in report_html:
+                report_html = report_html.replace("```html", "").replace("```", "")
             
-            if "403" in str(error_log):
-                st.info("💡 FIX: Your API Key is invalid. Get a new key from aistudio.google.com")
-            elif "429" in str(error_log):
-                st.info("💡 FIX: You ran out of free queries (Quota Exceeded).")
-            elif "location" in str(error_log):
-                st.info("💡 FIX: Gemini is not available in your server's region.")
-            
-            st.stop()
+            status.update(label=f"✅ **AUDIT COMPLETE (Model: {used_model})**", state="complete", expanded=False)
+            st.markdown("### 📊 VULNERABILITY REPORT")
+            st.components.v1.html(report_html, height=800, scrolling=True)
