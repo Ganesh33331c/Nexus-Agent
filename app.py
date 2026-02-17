@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (Colorful Animation & Glass UI) ---
+# --- 2. CUSTOM CSS (Colorful, Transparent, Visible) ---
 st.markdown("""
 <style>
     /* IMPORT FONT */
@@ -35,7 +35,7 @@ st.markdown("""
         font-family: 'Outfit', sans-serif !important;
         color: #ffffff !important;
         text-align: center;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     /* LOGO STYLE */
@@ -46,17 +46,17 @@ st.markdown("""
     }
     
     .nexus-logo {
-        width: 130px;
-        height: 130px;
-        background: rgba(255, 255, 255, 0.25);
+        width: 140px;
+        height: 140px;
+        background: rgba(255, 255, 255, 0.1); /* Subtle transparency */
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        font-size: 65px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
+        backdrop-filter: blur(12px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        font-size: 70px;
         animation: float 6s ease-in-out infinite;
     }
     
@@ -68,14 +68,14 @@ st.markdown("""
 
     /* TITLE STYLING */
     .agent-title {
-        font-size: 3.2rem;
+        font-size: 3.5rem;
         font-weight: 800;
         margin-bottom: 0px;
         letter-spacing: 1px;
     }
 
     .agent-subtitle {
-        font-size: 1.1rem;
+        font-size: 1.2rem;
         font-weight: 600;
         opacity: 0.95;
         margin-bottom: 40px;
@@ -83,39 +83,41 @@ st.markdown("""
         letter-spacing: 2px;
     }
 
-    /* INPUT FIELD: Frost Glass (Visible & Beautiful) */
+    /* INPUT FIELD: Transparent with Visible Text */
     .stTextInput > div > div > input {
-        background-color: rgba(255, 255, 255, 0.25); /* Semi-transparent White */
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.15); /* Transparent */
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        color: #ffffff !important; /* Bright White Text */
+        font-weight: 600;
         border-radius: 15px;
         padding: 25px 20px;
         font-size: 18px;
         text-align: center;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(5px);
         transition: all 0.3s ease;
     }
     
+    /* Input Placeholder Color */
     .stTextInput > div > div > input::placeholder {
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.7);
     }
     
     .stTextInput > div > div > input:focus {
-        background-color: rgba(255, 255, 255, 0.35);
+        background-color: rgba(255, 255, 255, 0.25);
         border-color: #ffffff;
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        box-shadow: 0 0 25px rgba(255, 255, 255, 0.2);
     }
 
-    /* BUTTON: Vibrant Gradient (Not Black!) */
+    /* BUTTON: Vibrant Gradient (Fixed Black Issue) */
     .stButton > button {
         width: 100%;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); /* Purple-Blue */
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); /* Visible Purple-Blue */
         color: white !important;
         font-weight: 800;
         border-radius: 15px;
         padding: 15px 30px;
         border: none;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         transition: all 0.3s ease;
         font-size: 1.2rem;
         margin-top: 10px;
@@ -125,10 +127,10 @@ st.markdown("""
     .stButton > button:hover {
         transform: translateY(-3px);
         box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%); /* Reverse gradient */
+        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%); /* Reverse on hover */
     }
     
-    /* Hide Default UI */
+    /* HIDE DEFAULT UI */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -147,18 +149,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# TITLE (Full Name)
+# FULL TITLE
 st.markdown('<h1 class="agent-title">NEXUS DEVSECOPS AGENT</h1>', unsafe_allow_html=True)
 st.markdown('<div class="agent-subtitle">Autonomous Security Auditor • Built by Ganesh</div>', unsafe_allow_html=True)
 
 # INPUT FORM
 with st.form("scan_form"):
-    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL here...")
+    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL here (e.g., https://github.com/owner/repo)")
     st.write("") # Spacer
     
+    # Centered Button
     c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        scan_btn = st.form_submit_button("🚀 START SECURITY AUDIT")
+        scan_btn = st.form_submit_button("🚀 INITIATE SECURITY SCAN")
 
 # --- 4. SECRETS & SETUP ---
 api_key = None
@@ -183,55 +186,59 @@ if scan_btn and repo_url:
         st.write("📡 Scanning Repository Manifest...")
         scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
         
-        # DEBUG
+        # DEBUG (Hidden)
         with st.expander("Show Diagnostic Data", expanded=False):
             st.code(scan_data, language='json')
             
         st.write("🛡️ Cross-referencing CVE Database...")
         
-        # --- 🔍 SMART MODEL FINDER (FIXES 404 ERROR) ---
-        try:
-            # 1. Ask Google: "What models do I have?"
-            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            
-            # 2. Pick the best one intelligently
-            # Priority: 1.5-Flash -> 1.5-Pro -> Pro -> First Available
-            if any('gemini-1.5-flash' in m for m in all_models):
-                model_name = 'models/gemini-1.5-flash'
-            elif any('gemini-1.5-pro' in m for m in all_models):
-                model_name = 'models/gemini-1.5-pro'
-            elif any('gemini-pro' in m for m in all_models):
-                model_name = 'models/gemini-pro'
-            else:
-                model_name = all_models[0] # Just take the first one that works
-            
-            # st.write(f"DEBUG: Using Model: {model_name}") # Uncomment to see which model picked
-            model = genai.GenerativeModel(model_name)
-            
-            prompt = f"""
-            You are Nexus, a DevSecOps AI.
-            Analyze this repository scan: {scan_data}
-            
-            Task:
-            1. Identify critical vulnerabilities.
-            2. Explain the risk (RCE, XSS, etc.).
-            3. Provide remediation commands.
-            4. Output a professional HTML report using Tailwind CSS. 
-            5. Design the report to be clean, white, and corporate.
-            """
-            
-            response = model.generate_content(prompt)
+        # --- 🔍 SELF-HEALING AI MODEL SELECTOR ---
+        # This loop tries every model until one works, fixing the 404 error.
+        response = None
+        used_model = None
+        
+        models_to_try = [
+            'gemini-1.5-flash',       # Best/Fastest
+            'gemini-pro',             # Standard/Stable
+            'gemini-1.5-pro-latest',  # Powerful
+            'gemini-1.0-pro'          # Legacy Fallback
+        ]
+        
+        for m_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(m_name)
+                
+                prompt = f"""
+                You are Nexus, a DevSecOps AI.
+                Analyze this repository scan: {scan_data}
+                
+                Task:
+                1. Identify critical vulnerabilities.
+                2. Explain the risk (RCE, XSS, etc.).
+                3. Provide remediation commands.
+                4. Output a professional HTML report using Tailwind CSS. 
+                5. Design the report to be clean, white, and corporate.
+                """
+                
+                # Try generating to see if it works
+                response = model.generate_content(prompt)
+                used_model = m_name
+                break # It worked! Stop loop.
+            except Exception:
+                continue # Failed? Try the next one.
+        
+        if response:
             report_html = response.text
-            
             if "```html" in report_html:
                 report_html = report_html.replace("```html", "").replace("```", "")
             
-            status.update(label="✅ **AUDIT COMPLETE**", state="complete", expanded=False)
+            status.update(label=f"✅ **AUDIT COMPLETE (Model: {used_model})**", state="complete", expanded=False)
             
-        except Exception as e:
-            st.error(f"AI Engine Critical Failure: {e}")
+            # DISPLAY REPORT
+            st.markdown("### 📊 VULNERABILITY REPORT")
+            st.components.v1.html(report_html, height=800, scrolling=True)
+            
+        else:
+            st.error("❌ CRITICAL ERROR: All AI models failed (404).")
+            st.info("💡 Please update your 'requirements.txt' file to include: google-generativeai>=0.7.0")
             st.stop()
-
-    # DISPLAY REPORT
-    st.markdown("### 📊 VULNERABILITY REPORT")
-    st.components.v1.html(report_html, height=800, scrolling=True)
