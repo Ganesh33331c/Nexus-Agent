@@ -11,123 +11,134 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (Dark, Sharp, Professional) ---
+# --- 2. CUSTOM CSS (Colorful Animation & Glass UI) ---
 st.markdown("""
 <style>
     /* IMPORT FONT */
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Inter:wght@400;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
 
-    /* BACKGROUND: Deep Cyber-Black Gradient */
+    /* BACKGROUND: Colorful Animated Gradient (Restored) */
     .stApp {
-        background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
-        background-attachment: fixed;
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: gradient 15s ease infinite;
+    }
+    
+    @keyframes gradient {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
     }
 
     /* TYPOGRAPHY */
-    h1, h2, h3, div, span, p {
-        text-align: center;
+    h1, h2, h3, p, div, span {
+        font-family: 'Outfit', sans-serif !important;
         color: #ffffff !important;
+        text-align: center;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* 🛡️ CUSTOM LOGO STYLING */
+    /* LOGO STYLE */
     .logo-container {
         display: flex;
         justify-content: center;
-        margin-bottom: 25px;
-        margin-top: 20px;
+        margin-bottom: 20px;
     }
     
     .nexus-logo {
-        width: 140px;
-        height: 140px;
-        background: linear-gradient(145deg, #0f172a, #334155);
+        width: 130px;
+        height: 130px;
+        background: rgba(255, 255, 255, 0.25);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 0 50px rgba(37, 99, 235, 0.5); /* Blue Glow */
-        border: 2px solid #3b82f6;
-        font-size: 70px;
-        animation: pulse 3s infinite ease-in-out;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        font-size: 65px;
+        animation: float 6s ease-in-out infinite;
     }
     
-    @keyframes pulse {
-        0% { box-shadow: 0 0 30px rgba(37, 99, 235, 0.4); }
-        50% { box-shadow: 0 0 60px rgba(37, 99, 235, 0.7); }
-        100% { box-shadow: 0 0 30px rgba(37, 99, 235, 0.4); }
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
     }
 
     /* TITLE STYLING */
     .agent-title {
-        font-family: 'Orbitron', sans-serif !important;
-        font-size: 3.5rem;
+        font-size: 3.2rem;
         font-weight: 800;
-        letter-spacing: 2px;
-        background: linear-gradient(90deg, #ffffff, #94a3b8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 5px;
-        text-transform: uppercase;
+        margin-bottom: 0px;
+        letter-spacing: 1px;
     }
 
     .agent-subtitle {
-        font-family: 'Inter', sans-serif !important;
         font-size: 1.1rem;
-        color: #94a3b8 !important;
-        letter-spacing: 3px;
+        font-weight: 600;
+        opacity: 0.95;
         margin-bottom: 40px;
         text-transform: uppercase;
+        letter-spacing: 2px;
     }
 
-    /* INPUT FIELD (Transparent & Clean) */
+    /* INPUT FIELD: Frost Glass (Visible & Beautiful) */
     .stTextInput > div > div > input {
-        background-color: rgba(15, 23, 42, 0.8); /* Dark Blue-Black */
-        border: 2px solid #334155;
-        color: #e2e8f0 !important;
-        border-radius: 12px;
-        padding: 25px 20px; /* Taller input */
+        background-color: rgba(255, 255, 255, 0.25); /* Semi-transparent White */
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        color: #ffffff !important;
+        border-radius: 15px;
+        padding: 25px 20px;
         font-size: 18px;
         text-align: center;
-        transition: border-color 0.3s;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.8);
     }
     
     .stTextInput > div > div > input:focus {
-        border-color: #3b82f6; /* Blue border on click */
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        background-color: rgba(255, 255, 255, 0.35);
+        border-color: #ffffff;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
     }
 
-    /* BUTTON (Bright Blue - Fixed Visibility) */
+    /* BUTTON: Vibrant Gradient (Not Black!) */
     .stButton > button {
         width: 100%;
-        background: linear-gradient(90deg, #2563eb 0%, #06b6d4 100%);
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); /* Purple-Blue */
         color: white !important;
-        font-family: 'Orbitron', sans-serif !important;
-        font-weight: 700;
-        border-radius: 12px;
+        font-weight: 800;
+        border-radius: 15px;
         padding: 15px 30px;
         border: none;
-        margin-top: 15px;
-        letter-spacing: 1px;
-        box-shadow: 0 10px 25px rgba(6, 182, 212, 0.4); /* Glow effect */
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         transition: all 0.3s ease;
+        font-size: 1.2rem;
+        margin-top: 10px;
+        letter-spacing: 1px;
     }
     
     .stButton > button:hover {
         transform: translateY(-3px);
-        box-shadow: 0 15px 35px rgba(6, 182, 212, 0.6);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%); /* Reverse gradient */
     }
     
-    /* HIDE DEFAULT UI */
+    /* Hide Default UI */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-
+    
 </style>
 """, unsafe_allow_html=True)
 
 # --- 3. UI LAYOUT ---
 
-# 🛡️ LOGO SECTION
+# LOGO
 st.markdown("""
 <div class="logo-container">
     <div class="nexus-logo">
@@ -136,19 +147,18 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# TEXT SECTION
-st.markdown('<h1 class="agent-title">NEXUS AGENT</h1>', unsafe_allow_html=True)
-st.markdown('<div class="agent-subtitle">Autonomous DevSecOps Auditor • Built by Ganesh</div>', unsafe_allow_html=True)
+# TITLE (Full Name)
+st.markdown('<h1 class="agent-title">NEXUS DEVSECOPS AGENT</h1>', unsafe_allow_html=True)
+st.markdown('<div class="agent-subtitle">Autonomous Security Auditor • Built by Ganesh</div>', unsafe_allow_html=True)
 
 # INPUT FORM
 with st.form("scan_form"):
-    repo_url = st.text_input("TARGET REPOSITORY URL", placeholder="https://github.com/owner/repo")
+    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL here...")
     st.write("") # Spacer
     
-    # Centered Button
-    c1, c2, c3 = st.columns([1, 4, 1]) # Wider button column
+    c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        scan_btn = st.form_submit_button("🚀 INITIATE SECURITY SCAN")
+        scan_btn = st.form_submit_button("🚀 START SECURITY AUDIT")
 
 # --- 4. SECRETS & SETUP ---
 api_key = None
@@ -168,22 +178,35 @@ if scan_btn and repo_url:
         
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Status Container
     with st.status("⚙️ **NEXUS CORE ACTIVE**", expanded=True) as status:
         
         st.write("📡 Scanning Repository Manifest...")
         scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
         
-        # DEBUG (Hidden)
+        # DEBUG
         with st.expander("Show Diagnostic Data", expanded=False):
             st.code(scan_data, language='json')
             
         st.write("🛡️ Cross-referencing CVE Database...")
         
-        # STEP 2: AI ANALYSIS (Smart Fallback System)
+        # --- 🔍 SMART MODEL FINDER (FIXES 404 ERROR) ---
         try:
-            # 1. Try FLASH first (Fastest)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # 1. Ask Google: "What models do I have?"
+            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            # 2. Pick the best one intelligently
+            # Priority: 1.5-Flash -> 1.5-Pro -> Pro -> First Available
+            if any('gemini-1.5-flash' in m for m in all_models):
+                model_name = 'models/gemini-1.5-flash'
+            elif any('gemini-1.5-pro' in m for m in all_models):
+                model_name = 'models/gemini-1.5-pro'
+            elif any('gemini-pro' in m for m in all_models):
+                model_name = 'models/gemini-pro'
+            else:
+                model_name = all_models[0] # Just take the first one that works
+            
+            # st.write(f"DEBUG: Using Model: {model_name}") # Uncomment to see which model picked
+            model = genai.GenerativeModel(model_name)
             
             prompt = f"""
             You are Nexus, a DevSecOps AI.
@@ -205,18 +228,9 @@ if scan_btn and repo_url:
             
             status.update(label="✅ **AUDIT COMPLETE**", state="complete", expanded=False)
             
-        except Exception:
-            # 2. Fallback to PRO (Most Compatible) if Flash fails (404)
-            try:
-                model = genai.GenerativeModel('gemini-pro')
-                response = model.generate_content(prompt)
-                report_html = response.text
-                if "```html" in report_html:
-                    report_html = report_html.replace("```html", "").replace("```", "")
-                status.update(label="✅ **AUDIT COMPLETE**", state="complete", expanded=False)
-            except Exception as e:
-                st.error(f"AI Engine Error: {e}")
-                st.stop()
+        except Exception as e:
+            st.error(f"AI Engine Critical Failure: {e}")
+            st.stop()
 
     # DISPLAY REPORT
     st.markdown("### 📊 VULNERABILITY REPORT")
