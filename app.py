@@ -57,7 +57,7 @@ if scan_btn and repo_url and api_key:
 
         # STEP 2: REASONING (GEMINI)
         st.write("Correlating CVE database with findings...")
-        model = genai.GenerativeModel('gemini-1.5-flash') 
+        model = genai.GenerativeModel('gemini-pro') 
         
         prompt = f"""
         You are Nexus, a DevSecOps AI. 
@@ -96,3 +96,4 @@ if scan_btn and repo_url and api_key:
 elif scan_btn and not api_key:
 
     st.warning("Please provide a Gemini API Key to proceed.")
+
