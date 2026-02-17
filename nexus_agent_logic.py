@@ -4,34 +4,23 @@ import os
 
 def scan_repo_manifest(repo_url):
     """
-    Nexus Agent Tool: Scan Repository Manifest
+    Nexus Agent Tool: Smart Deep Scan
     """
-    
-    # 1. Sanitize URL to get "owner/repo"
+    # 1. Clean URL
     try:
-        clean_url = repo_url.rstrip(".git").split("github.com/")[-1]
-    except IndexError:
-        return json.dumps({"error": "Invalid GitHub URL format. Use https://github.com/owner/repo"})
+        clean_url = repo_url.rstrip("/").rstrip(".git").split("github.com/")[-1]
+    except:
+        return json.dumps({"error": "Invalid URL format."})
 
     api_base = f"https://api.github.com/repos/{clean_url}/contents"
     
-    report = {
-        "target": clean_url,
-        "critical_files_found": [],
-        "dependencies": [],
-        "scan_status": "Success"
-    }
-
-    # 2. Prepare Authentication (THE CRITICAL FIX)
-    headers = {}
-    
-    # Try to get token from Environment (Streamlit Secrets injects this into os.environ)
+    # 2. Setup Auth
+    headers = {"Accept": "application/vnd.github.v3+json"}
     token = os.environ.get('GITHUB_TOKEN')
     
     if token:
         headers['Authorization'] = f"token {token}"
     else:
-        # Fallback: Try to find Streamlit secrets if not in env
         try:
             import streamlit as st
             if "GITHUB_TOKEN" in st.secrets:
@@ -39,33 +28,65 @@ def scan_repo_manifest(repo_url):
         except:
             pass
 
-    # 3. List files via GitHub API
+    report = {
+        "target": clean_url,
+        "critical_files_found": [],
+        "dependencies": [],
+        "scan_status": "Success", 
+        "debug_log": [] # To help us track where it looked
+    }
+
+    def fetch_file_content(download_url):
+        try:
+            resp = requests.get(download_url, headers=headers, timeout=10)
+            return [line.strip() for line in resp.text.split('\n') if line.strip() and not line.startswith('#')]
+        except:
+            return []
+
     try:
-        # We pass 'headers' here so GitHub knows who we are!
+        # PHASE 1: Scan Root Directory
         resp = requests.get(api_base, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return json.dumps({"error": f"GitHub API Error: {resp.status_code}"})
         
-        if resp.status_code == 403:
-            return json.dumps({"error": "Rate Limit Exceeded or Bad Token. Check Streamlit Secrets."})
-        elif resp.status_code == 404:
-            return json.dumps({"error": "Repository not found or private."})
-        elif resp.status_code != 200:
-            return json.dumps({"error": f"API Error: {resp.status_code}"})
+        root_files = resp.json()
+        report["debug_log"].append(f"Scanned Root: Found {len(root_files)} files")
         
-        files = resp.json()
+        # Check for manifest in root
+        found_manifest = False
+        for f in root_files:
+            if f['name'] == "requirements.txt":
+                report["critical_files_found"].append("requirements.txt (Root)")
+                report["dependencies"] = fetch_file_content(f['download_url'])
+                found_manifest = True
+                break
         
-        # 4. Hunt for 'requirements.txt'
-        for f in files:
-            name = f['name']
-            if name in ["requirements.txt", "package.json", "Pipfile", "setup.py"]:
-                report["critical_files_found"].append(name)
+        # PHASE 2: Deep Scan (If not found in root)
+        if not found_manifest:
+            report["debug_log"].append("Manifest not found in root. Scanning subfolders...")
             
-            # Fetch content of requirements.txt
-            if name == "requirements.txt":
-                req_resp = requests.get(f['download_url'], headers=headers, timeout=10)
-                deps = [line.strip() for line in req_resp.text.split('\n') if line.strip() and not line.startswith('#')]
-                report["dependencies"] = deps
+            # Look for folders like 'app', 'src', 'backend'
+            subfolders = [f for f in root_files if f['type'] == 'dir']
+            
+            for folder in subfolders:
+                # Construct URL for subfolder content
+                folder_url = f"{api_base}/{folder['name']}"
+                sub_resp = requests.get(folder_url, headers=headers, timeout=10)
+                
+                if sub_resp.status_code == 200:
+                    sub_files = sub_resp.json()
+                    # Look for requirements.txt inside this folder
+                    for sub_f in sub_files:
+                        if sub_f['name'] == "requirements.txt":
+                            report["critical_files_found"].append(f"requirements.txt ({folder['name']}/)")
+                            report["dependencies"] = fetch_file_content(sub_f['download_url'])
+                            found_manifest = True
+                            break
+                
+                if found_manifest:
+                    break
 
     except Exception as e:
-        return json.dumps({"error": f"Internal Agent Error: {str(e)}"})
+        return json.dumps({"error": f"Crash: {str(e)}"})
 
     return json.dumps(report, indent=2)
