@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (Clean & Solid) ---
+# --- 2. CUSTOM CSS (Button-Style Input) ---
 st.markdown("""
 <style>
     /* IMPORT FONT */
@@ -35,7 +35,7 @@ st.markdown("""
         font-family: 'Outfit', sans-serif !important;
         color: #ffffff !important;
         text-align: center;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     /* LOGO STYLE */
@@ -83,48 +83,56 @@ st.markdown("""
         letter-spacing: 2px;
     }
 
-    /* INPUT FIELD: SOLID WHITE (High Visibility) */
+    /* --- ENTRY FIELD AS BUTTON (The Fix) --- */
     .stTextInput > div > div > input {
         background-color: #ffffff !important; /* Solid White */
-        border: 2px solid #e2e8f0;
-        color: #0f172a !important; /* Dark Black Text */
-        font-weight: 600;
-        border-radius: 50px; /* Pill Shape */
-        padding: 25px 30px;
-        font-size: 18px;
-        text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        border: none;
+        color: #1e293b !important; /* Dark Text */
+        font-weight: 800; /* Bold Text */
+        border-radius: 50px; /* Full Pill Shape */
+        padding: 25px 0px; /* Tall clickable area */
+        font-size: 20px;
+        text-align: center; /* Center the text like a button */
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
     }
     
-    /* Placeholder Text Color */
-    .stTextInput > div > div > input::placeholder {
-        color: #94a3b8;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #2563eb;
-        box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.2);
+    /* Hover Effect for Input */
+    .stTextInput > div > div > input:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3);
     }
 
-    /* BUTTON: Vibrant Gradient */
+    /* Focus Effect */
+    .stTextInput > div > div > input:focus {
+        border: 3px solid #3b82f6; /* Blue ring when typing */
+        outline: none;
+    }
+    
+    /* Placeholder Styling */
+    .stTextInput > div > div > input::placeholder {
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
+    /* SUBMIT BUTTON (Gradient Pill) */
     .stButton > button {
         width: 100%;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%); /* Deep Violet */
         color: white !important;
         font-weight: 800;
         border-radius: 50px;
-        padding: 15px 30px;
+        padding: 18px 30px;
         border: none;
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         transition: all 0.3s ease;
         font-size: 1.2rem;
-        margin-top: 10px;
+        margin-top: 15px;
     }
     
     .stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%);
+        transform: scale(1.02);
+        box-shadow: 0 15px 30px rgba(124, 58, 237, 0.4);
     }
     
     /* HIDE DEFAULT UI */
@@ -152,13 +160,14 @@ st.markdown('<div class="agent-subtitle">Autonomous Security Auditor • Built b
 
 # INPUT FORM
 with st.form("scan_form"):
-    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL (e.g., https://github.com/owner/repo)")
+    # This input now looks like a big white button
+    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL Here...")
     st.write("") # Spacer
     
     # Centered Button
     c1, c2, c3 = st.columns([1, 4, 1])
     with c2:
-        scan_btn = st.form_submit_button("🚀 INITIATE SECURITY SCAN")
+        scan_btn = st.form_submit_button("🚀 LAUNCH AUDIT")
 
 # --- 4. SECRETS & SETUP ---
 api_key = None
@@ -193,7 +202,7 @@ if scan_btn and repo_url:
         response = None
         used_model = None
         
-        # Priority list: Flash (Fast) -> Pro (Stable) -> 1.0 (Legacy)
+        # Priority: 1.5-Flash (Fast) -> Pro (Stable) -> 1.0 (Legacy)
         models_to_try = [
             'gemini-1.5-flash',
             'gemini-pro',
