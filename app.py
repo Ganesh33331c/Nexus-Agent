@@ -3,129 +3,140 @@ import google.generativeai as genai
 import nexus_agent_logic
 import os
 
-# --- 1. PAGE CONFIGURATION (Must be first) ---
+# --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Nexus | DevSecOps Agent",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (The UI "Magic") ---
-# This forces a professional "Dark Ops" look with Glassmorphism
+# --- 2. CUSTOM CSS (The "Aurora Glass" Look) ---
 st.markdown("""
 <style>
-    /* Main Background - Deep Charcoal */
+    /* IMPORT GOOGLE FONTS */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+    /* BACKGROUND IMAGE & GRADIENT */
     .stApp {
-        background-color: #0e1117;
+        background: url("https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
     }
-    
-    /* Card-like Containers */
-    .css-1r6slb0, .stMarkdown, .stButton {
-        font-family: 'Inter', sans-serif;
+
+    /* GLASSMORPHISM CARD (The Main Container) */
+    .glass-container {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 3rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
     }
-    
-    /* Custom Title Style */
+
+    /* TITLE STYLING */
     .main-title {
-        font-size: 3rem !important;
+        font-family: 'Poppins', sans-serif;
+        font-size: 3.5rem;
         font-weight: 800;
-        background: -webkit-linear-gradient(45deg, #3b82f6, #8b5cf6);
+        color: #ffffff;
+        text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        line-height: 1.2;
+        margin-bottom: 0.5rem;
+    }
+
+    /* "BUILT BY" BADGE */
+    .creator-badge {
+        display: inline-block;
+        background: linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
-    }
-    
-    /* "Built By" Badge */
-    .creator-badge {
-        font-size: 1rem;
-        color: #94a3b8;
-        font-weight: 500;
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: 1px;
         margin-bottom: 2rem;
-        border-left: 3px solid #3b82f6;
-        padding-left: 10px;
+        border: 2px solid #00C9FF;
+        padding: 5px 15px;
+        border-radius: 50px;
     }
 
-    /* The "Control Panel" Card */
-    .control-panel {
-        background-color: #1e293b;
-        padding: 2rem;
+    /* INPUT FIELD STYLING */
+    .stTextInput>div>div>input {
+        background-color: rgba(255, 255, 255, 0.9);
+        color: #1a1a1a;
         border-radius: 12px;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        margin-bottom: 2rem;
+        border: none;
+        padding: 15px;
+        font-size: 16px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
-    /* Primary Button Styling */
+    /* BUTTON STYLING (Gradient) */
     .stButton>button {
         width: 100%;
-        background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
+        padding: 0.8rem 2rem;
+        border-radius: 12px;
+        font-family: 'Poppins', sans-serif;
         font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        font-size: 1.1rem;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     
-    /* Input Field Styling */
-    .stTextInput>div>div>input {
-        background-color: #0f172a;
-        color: #e2e8f0;
-        border: 1px solid #334155;
-        border-radius: 8px;
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
+
+    /* HIDE DEFAULT STREAMLIT MENU */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SIDEBAR (Navigation & Status) ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/9662/9662363.png", width=60) # Placeholder Security Icon
-    st.markdown("### Nexus Agent")
-    st.caption("v2.5.0 | Enterprise Edition")
-    
-    st.markdown("---")
-    
-    st.markdown("#### 📡 System Status")
-    st.markdown("✅ **AI Engine:** Online (Gemini 2.5)")
-    st.markdown("✅ **Scanner:** Active")
-    st.markdown("✅ **Database:** Connected")
-    
-    st.markdown("---")
-    st.info("💡 **Pro Tip:** Use public GitHub URLs for the fastest scan speeds.")
+# --- 3. UI LAYOUT ---
 
-# --- 4. MAIN HEADER ---
-col1, col2 = st.columns([3, 1])
-with col1:
+# Centered Layout using Columns
+col1, col2, col3 = st.columns([1, 6, 1])
+
+with col2:
+    # START GLASS CONTAINER
+    st.markdown('<div class="glass-container">', unsafe_allow_html=True)
+    
+    # Title Section
     st.markdown('<h1 class="main-title">NEXUS AGENT</h1>', unsafe_allow_html=True)
-    # --- YOUR REQUESTED TEXT CHANGE ---
-    st.markdown('<div class="creator-badge">Built by Ganesh | Powered by Gemini 2.5</div>', unsafe_allow_html=True)
-
-# --- 5. THE CONTROL PANEL (Input Area) ---
-st.markdown('<div class="control-panel">', unsafe_allow_html=True)
-st.markdown("### 🎯 Target Acquisition")
-st.markdown("Enter the GitHub repository URL to initiate a comprehensive DevSecOps audit.")
-
-# Input Form
-with st.form("scan_form"):
-    repo_url = st.text_input(
-        "Repository URL", 
-        placeholder="https://github.com/owner/repo",
-        help="Paste the full HTTPS URL of the public repository."
-    )
+    st.markdown('<div class="creator-badge">⚡ Created by Ganesh | Powered by Gemini 2.5</div>', unsafe_allow_html=True)
     
-    # Using columns to center the button or make it responsive
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        scan_btn = st.form_submit_button("🚀 Initialize Security Scan")
+    st.markdown("""
+    <p style='color: #f0f0f0; font-size: 1.1rem; margin-bottom: 2rem;'>
+        <b>Enterprise DevSecOps Scanner.</b> Enter a GitHub repository URL below to initiate an autonomous vulnerability audit.
+    </p>
+    """, unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
+    # Input Form
+    with st.form("scan_form"):
+        repo_url = st.text_input(
+            "Target Repository URL", 
+            placeholder="https://github.com/we45/Vulnerable-Flask-App"
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True) # Spacer
+        
+        submit_col1, submit_col2 = st.columns([1, 1])
+        with submit_col2:
+            scan_btn = st.form_submit_button("🚀 Launch Security Audit")
 
-# --- 6. SECRETS & SETUP (Hidden Logic) ---
-# Try to get keys from Streamlit Cloud Secrets
+    st.markdown('</div>', unsafe_allow_html=True)
+    # END GLASS CONTAINER
+
+# --- 4. SECRETS & SETUP ---
 api_key = None
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
@@ -134,77 +145,63 @@ if "GITHUB_TOKEN" in st.secrets:
 
 if api_key:
     genai.configure(api_key=api_key)
-else:
-    st.warning("⚠️ API Key missing. Please check Streamlit Secrets.")
 
-# --- 7. AGENT EXECUTION LOGIC ---
+# --- 5. EXECUTION LOGIC ---
 if scan_btn and repo_url:
     if not api_key:
-        st.error("❌ Authentication Failed: No Gemini API Key found.")
+        st.error("❌ System Error: API Key missing in Secrets.")
         st.stop()
         
-    # Container for results
-    result_container = st.container()
+    # Results Area (Outside the glass card for cleanliness)
+    st.markdown("---")
     
-    with result_container:
-        # Progress Bar & Status
-        with st.status("🕵️ **Nexus is investigating...**", expanded=True) as status:
-            
-            st.write("📡 connecting to GitHub Secure Gateway...")
-            # STEP 1: SCAN
-            scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
-            
-            # --- DEBUG MODE (Hidden by default for Pro Look) ---
-            with st.expander("🛠️ View Raw Diagnostic Data", expanded=False):
-                st.code(scan_data, language='json')
-                
-            st.write("🧠 Analyzing dependency tree for CVEs...")
-            
-            # STEP 2: REASONING (The Brain)
-            # Robust Model Selection
-            try:
-                available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                if 'models/gemini-1.5-flash' in available_models:
-                    model_name = 'gemini-1.5-flash'
-                elif 'models/gemini-1.5-pro' in available_models:
-                    model_name = 'gemini-1.5-pro'
-                else:
-                    model_name = 'gemini-pro'
-                
-                model = genai.GenerativeModel(model_name)
-                
-                prompt = f"""
-                You are Nexus, an elite DevSecOps AI built by Ganesh.
-                Analyze this repository scan: {scan_data}
-                
-                Task:
-                1. Identify critical vulnerabilities in the dependencies.
-                2. Explain *why* they are dangerous (RCE, XSS, etc.).
-                3. Provide exact 'pip install' or 'npm install' remediation commands.
-                4. Output a professional HTML report using Tailwind CSS. 
-                5. Make it look like a "Top Secret" government report (Clean, Serious).
-                """
-                
-                response = model.generate_content(prompt)
-                report_html = response.text
-                
-                # Clean up markdown
-                if "```html" in report_html:
-                    report_html = report_html.replace("```html", "").replace("```", "")
-                
-                status.update(label="✅ **Audit Complete. Threat Level Calculated.**", state="complete", expanded=False)
-                
-            except Exception as e:
-                st.error(f"AI Core Malfunction: {e}")
-                st.stop()
-
-        # --- 8. DISPLAY REPORT ---
-        st.markdown("### 📊 Audit Results")
-        st.components.v1.html(report_html, height=800, scrolling=True)
+    with st.status("🕵️ **Nexus is investigating target...**", expanded=True) as status:
         
-        st.download_button(
-            label="📥 Download Official Report",
-            data=report_html,
-            file_name="Nexus_Audit_Report.html",
-            mime="text/html"
-        )
+        # STEP 1: SCAN
+        st.write("📡 Establishing secure connection to GitHub...")
+        scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
+        
+        # DEBUG (Hidden)
+        with st.expander("🛠️ View Raw Diagnostic Data", expanded=False):
+            st.code(scan_data, language='json')
+            
+        st.write("🧠 Cross-referencing dependencies with CVE Database...")
+        
+        # STEP 2: REASONING
+        try:
+            # Model Auto-Select
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            if 'models/gemini-1.5-flash' in available_models:
+                model_name = 'gemini-1.5-flash'
+            else:
+                model_name = 'gemini-pro'
+            
+            model = genai.GenerativeModel(model_name)
+            
+            prompt = f"""
+            You are Nexus, an elite DevSecOps AI built by Ganesh.
+            Analyze this repository scan: {scan_data}
+            
+            Task:
+            1. Identify critical vulnerabilities in the dependencies.
+            2. Explain *why* they are dangerous.
+            3. Provide exact 'pip install' remediation commands.
+            4. Output a professional HTML report using Tailwind CSS. 
+            5. Use a 'Light Mode' clean corporate style for the report.
+            """
+            
+            response = model.generate_content(prompt)
+            report_html = response.text
+            
+            if "```html" in report_html:
+                report_html = report_html.replace("```html", "").replace("```", "")
+            
+            status.update(label="✅ **Mission Complete. Report Generated.**", state="complete", expanded=False)
+            
+        except Exception as e:
+            st.error(f"AI Core Malfunction: {e}")
+            st.stop()
+
+    # DISPLAY REPORT
+    st.markdown("### 📊 Final Audit Report")
+    st.components.v1.html(report_html, height=800, scrolling=True)
