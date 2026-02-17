@@ -56,8 +56,33 @@ if scan_btn and repo_url and api_key:
             st.stop()
 
         # STEP 2: REASONING (GEMINI)
+       # ... inside the "STEP 2" block ...
         st.write("Correlating CVE database with findings...")
-        model = genai.GenerativeModel('gemini-pro') 
+        
+        # --- ROBUST MODEL SELECTION ---
+        try:
+            # 1. List all models available to your key
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            # st.write(f"Debug: Available models: {available_models}") # Uncomment if still failing
+            
+            # 2. Pick the best available one automatically
+            if 'models/gemini-1.5-flash' in available_models:
+                model_name = 'gemini-1.5-flash'
+            elif 'models/gemini-1.5-pro' in available_models:
+                model_name = 'gemini-1.5-pro'
+            elif 'models/gemini-pro' in available_models:
+                model_name = 'gemini-pro'
+            else:
+                model_name = available_models[0] # Fallback to whatever is there
+            
+            # st.write(f"Using model: {model_name}")
+            model = genai.GenerativeModel(model_name)
+            
+        except Exception as e:
+            st.error(f"Error listing models: {e}")
+            st.stop()
+            
+        # ... continue with response = model.generate_content(prompt) ... 
         
         prompt = f"""
         You are Nexus, a DevSecOps AI. 
@@ -96,4 +121,5 @@ if scan_btn and repo_url and api_key:
 elif scan_btn and not api_key:
 
     st.warning("Please provide a Gemini API Key to proceed.")
+
 
