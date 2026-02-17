@@ -11,13 +11,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CUSTOM CSS (Colorful, Transparent, Visible) ---
+# --- 2. CUSTOM CSS (Clean & Solid) ---
 st.markdown("""
 <style>
     /* IMPORT FONT */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
 
-    /* BACKGROUND: Colorful Animated Gradient (Restored) */
+    /* BACKGROUND: Colorful Animated Gradient */
     .stApp {
         background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
         background-size: 400% 400%;
@@ -48,14 +48,14 @@ st.markdown("""
     .nexus-logo {
         width: 140px;
         height: 140px;
-        background: rgba(255, 255, 255, 0.1); /* Subtle transparency */
+        background: rgba(255, 255, 255, 0.2);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
-        backdrop-filter: blur(12px);
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.5);
         font-size: 70px;
         animation: float 6s ease-in-out infinite;
     }
@@ -83,51 +83,48 @@ st.markdown("""
         letter-spacing: 2px;
     }
 
-    /* INPUT FIELD: Transparent with Visible Text */
+    /* INPUT FIELD: SOLID WHITE (High Visibility) */
     .stTextInput > div > div > input {
-        background-color: rgba(255, 255, 255, 0.15); /* Transparent */
-        border: 2px solid rgba(255, 255, 255, 0.4);
-        color: #ffffff !important; /* Bright White Text */
+        background-color: #ffffff !important; /* Solid White */
+        border: 2px solid #e2e8f0;
+        color: #0f172a !important; /* Dark Black Text */
         font-weight: 600;
-        border-radius: 15px;
-        padding: 25px 20px;
+        border-radius: 50px; /* Pill Shape */
+        padding: 25px 30px;
         font-size: 18px;
         text-align: center;
-        backdrop-filter: blur(5px);
-        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
     
-    /* Input Placeholder Color */
+    /* Placeholder Text Color */
     .stTextInput > div > div > input::placeholder {
-        color: rgba(255, 255, 255, 0.7);
+        color: #94a3b8;
     }
     
     .stTextInput > div > div > input:focus {
-        background-color: rgba(255, 255, 255, 0.25);
-        border-color: #ffffff;
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.2);
+        border-color: #2563eb;
+        box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.2);
     }
 
-    /* BUTTON: Vibrant Gradient (Fixed Black Issue) */
+    /* BUTTON: Vibrant Gradient */
     .stButton > button {
         width: 100%;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); /* Visible Purple-Blue */
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         color: white !important;
         font-weight: 800;
-        border-radius: 15px;
+        border-radius: 50px;
         padding: 15px 30px;
         border: none;
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         transition: all 0.3s ease;
         font-size: 1.2rem;
         margin-top: 10px;
-        letter-spacing: 1px;
     }
     
     .stButton > button:hover {
         transform: translateY(-3px);
         box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%); /* Reverse on hover */
+        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%);
     }
     
     /* HIDE DEFAULT UI */
@@ -155,7 +152,7 @@ st.markdown('<div class="agent-subtitle">Autonomous Security Auditor • Built b
 
 # INPUT FORM
 with st.form("scan_form"):
-    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL here (e.g., https://github.com/owner/repo)")
+    repo_url = st.text_input("TARGET REPOSITORY", placeholder="Paste GitHub URL (e.g., https://github.com/owner/repo)")
     st.write("") # Spacer
     
     # Centered Button
@@ -193,15 +190,15 @@ if scan_btn and repo_url:
         st.write("🛡️ Cross-referencing CVE Database...")
         
         # --- 🔍 SELF-HEALING AI MODEL SELECTOR ---
-        # This loop tries every model until one works, fixing the 404 error.
         response = None
         used_model = None
         
+        # Priority list: Flash (Fast) -> Pro (Stable) -> 1.0 (Legacy)
         models_to_try = [
-            'gemini-1.5-flash',       # Best/Fastest
-            'gemini-pro',             # Standard/Stable
-            'gemini-1.5-pro-latest',  # Powerful
-            'gemini-1.0-pro'          # Legacy Fallback
+            'gemini-1.5-flash',
+            'gemini-pro',
+            'gemini-1.5-pro-latest',
+            'gemini-1.0-pro'
         ]
         
         for m_name in models_to_try:
@@ -220,12 +217,12 @@ if scan_btn and repo_url:
                 5. Design the report to be clean, white, and corporate.
                 """
                 
-                # Try generating to see if it works
+                # Test generation
                 response = model.generate_content(prompt)
                 used_model = m_name
-                break # It worked! Stop loop.
+                break # Success!
             except Exception:
-                continue # Failed? Try the next one.
+                continue # Try next model
         
         if response:
             report_html = response.text
@@ -239,6 +236,6 @@ if scan_btn and repo_url:
             st.components.v1.html(report_html, height=800, scrolling=True)
             
         else:
-            st.error("❌ CRITICAL ERROR: All AI models failed (404).")
-            st.info("💡 Please update your 'requirements.txt' file to include: google-generativeai>=0.7.0")
+            st.error("❌ CRITICAL ERROR: All AI models failed.")
+            st.info("💡 DID YOU UPDATE REQUIREMENTS.TXT? You must add 'google-generativeai>=0.7.0' to your requirements.txt file on GitHub.")
             st.stop()
