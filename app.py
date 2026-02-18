@@ -3,8 +3,7 @@ import google.generativeai as genai
 import nexus_agent_logic
 import os
 import ast
-import io
-import uuid
+import json  # Added json for parsing
 import importlib.metadata
 from datetime import datetime
 
@@ -132,14 +131,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. SAST TOOLS (NEW FEATURE) ---
+# --- 3. SAST TOOLS ---
 
 def read_code_file(filepath, base_dir=None):
     """Safely reads file content (first 300 lines) for analysis."""
     if base_dir is None:
         base_dir = os.getcwd()
     
-    # 1. Security Check (Anti-Directory Traversal)
     abs_base = os.path.abspath(base_dir)
     abs_target = os.path.abspath(os.path.join(abs_base, filepath))
     
@@ -149,7 +147,6 @@ def read_code_file(filepath, base_dir=None):
     if not os.path.exists(abs_target):
         return f"# Error: File {filepath} not found."
 
-    # 2. Read with Limits
     content = []
     MAX_LINES = 300
     try:
@@ -179,19 +176,16 @@ def scan_code_for_patterns(filepath, library_name):
         class SecurityVisitor(ast.NodeVisitor):
             def visit_Call(self, node):
                 msg = None
-                # Check 1: PyYAML (unsafe load)
                 if library_name.lower() == 'pyyaml':
                     if isinstance(node.func, ast.Attribute) and node.func.attr == 'load':
                          if isinstance(node.func.value, ast.Name) and node.func.value.id == 'yaml':
                              msg = "Unsafe yaml.load() detected. RCE Risk."
 
-                # Check 2: Pickle (unsafe deserialization)
                 elif library_name.lower() == 'pickle':
                     if isinstance(node.func, ast.Attribute) and node.func.attr in ['load', 'loads']:
                         if isinstance(node.func.value, ast.Name) and node.func.value.id == 'pickle':
                              msg = "Insecure pickle deserialization detected."
 
-                # Check 3: Subprocess (Shell Injection)
                 elif library_name.lower() in ['subprocess', 'os']:
                     for keyword in node.keywords:
                         if keyword.arg == 'shell' and isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
@@ -206,7 +200,7 @@ def scan_code_for_patterns(filepath, library_name):
         
         SecurityVisitor().visit(tree)
     except:
-        pass # Skip unparseable files
+        pass 
     
     if findings:
         return "\n".join(findings)
@@ -260,7 +254,6 @@ if scan_btn and repo_url:
     
     with st.status("⚙️ **NEXUS CORE ACTIVE**", expanded=True) as status:
         
-        # VERSION CHECK
         try:
             lib_ver = importlib.metadata.version("google-generativeai")
             st.write(f"ℹ️ Library Version: {lib_ver}")
@@ -268,28 +261,39 @@ if scan_btn and repo_url:
             st.write("ℹ️ Library Version: Unknown")
             
         st.write("📡 Scanning Repository Manifest...")
-        # Get basic dependencies (SCA)
-        scan_data = nexus_agent_logic.scan_repo_manifest(repo_url)
         
-        # --- NEW STEP: PERFORM SAST (Pattern Matching) ---
+        # 1. Get raw output (might be string or dict)
+        raw_scan_output = nexus_agent_logic.scan_repo_manifest(repo_url)
+        
+        # 2. BUG FIX: Convert String to Dict if necessary
+        if isinstance(raw_scan_output, str):
+            try:
+                # Try parsing JSON string to Dict
+                scan_data = json.loads(raw_scan_output)
+            except json.JSONDecodeError:
+                # If not JSON, wrap the raw string in a dict structure
+                scan_data = {"raw_scan_output": raw_scan_output}
+        elif isinstance(raw_scan_output, dict):
+            scan_data = raw_scan_output
+        else:
+            scan_data = {"error": "Unknown scan output format"}
+
+        # --- SAST LOGIC ---
         st.write("🔬 Performing Static Code Analysis (SAST)...")
         sast_findings = ""
         
-        # Mocking local file access for demonstration (In real deployment, git clone first)
-        # Note: Since Streamlit Cloud doesn't clone by default, this only scans files 
-        # if nexus_agent_logic explicitly cloned them. 
-        # If not, we just rely on manifest data for now to prevent crashes.
-        
-        if os.path.exists("repo_clone"): # Assuming logic clones here
+        # NOTE: This only works if files were cloned locally. 
+        # Ideally, nexus_agent_logic should handle cloning to a temp dir.
+        if os.path.exists("repo_clone"): 
             for root, dirs, files in os.walk("repo_clone"):
                 for file in files:
                     if file.endswith(".py"):
                         full_path = os.path.join(root, file)
-                        # Scan for PyYAML patterns as example
-                        patterns = scan_code_for_patterns(full_path, "PyYAML")
+                        patterns = scan_code_for_patterns(full_path, "PyYAML") # Example check
                         if patterns:
                             sast_findings += f"\nFile: {file}\n{patterns}\n"
 
+        # Safe Assignment (Now that scan_data is guaranteed to be a dict)
         if sast_findings:
             scan_data["sast_analysis"] = sast_findings
         else:
@@ -297,11 +301,11 @@ if scan_btn and repo_url:
 
         
         with st.expander("Show Diagnostic Data", expanded=False):
-            st.code(scan_data, language='json')
+            st.code(json.dumps(scan_data, indent=2), language='json')
             
         st.write("🛡️ Cross-referencing CVE Database...")
         
-        # --- AUTO-DISCOVERY MODEL FINDER ---
+        # --- MODEL FINDER ---
         response = None
         used_model = "Unknown"
         
@@ -322,7 +326,6 @@ if scan_btn and repo_url:
             
             model = genai.GenerativeModel(used_model)
             
-            # UPDATED PROMPT FOR SAST REPORTING
             prompt = f"""
             You are Nexus, a DevSecOps AI.
             Analyze this repository scan: {scan_data}
@@ -349,11 +352,11 @@ if scan_btn and repo_url:
             
             status.update(label=f"✅ **AUDIT COMPLETE (Model: {used_model})**", state="complete", expanded=False)
             
-            # DISPLAY REPORT (HTML)
+            # DISPLAY REPORT
             st.markdown("### 📊 VULNERABILITY REPORT")
             st.components.v1.html(report_html, height=800, scrolling=True)
             
-            # --- HTML REPORT DOWNLOAD ---
+            # --- HTML DOWNLOAD ---
             st.markdown("---")
             col_dl1, col_dl2 = st.columns([3, 2])
             with col_dl2:
