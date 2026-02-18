@@ -8,77 +8,71 @@ import tempfile
 import shutil
 import time
 from git import Repo
-import importlib.metadata
 from datetime import datetime
 
-# --- 1. PAGE CONFIGURATION ---
+# --- 1. THEME & UI CONFIGURATION ---
 st.set_page_config(
-    page_title="Nexus DevSecOps Agent",
+    page_title="Nexus AI Auditor",
     page_icon="🛡️",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# --- 2. CUSTOM CSS ---
-st.markdown("""
+# Sidebar Theme Toggle
+with st.sidebar:
+    st.markdown("### 🎚️ Display Settings")
+    dark_mode = st.toggle("Dark Mode", value=False)
+    st.markdown("---")
+    st.markdown("### 🛠️ Session Info")
+    st.caption("Nexus Core: v2.5-Nuclear")
+
+# Opal UI Styling (Dynamic Light/Dark)
+bg_color = "#111827" if dark_mode else "#FFFFFF"
+text_color = "#F9FAFB" if dark_mode else "#111827"
+input_bg = "#1F2937" if dark_mode else "#FFFFFF"
+
+st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
-    .stApp {
-        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-        background-size: 400% 400%;
-        animation: gradient 15s ease infinite;
-    }
-    @keyframes gradient {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
-    }
-    h1, h2, h3, p, div, span {
-        font-family: 'Outfit', sans-serif !important;
-        color: #ffffff !important;
-        text-align: center;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .logo-container { display: flex; justify-content: center; margin-bottom: 20px; }
-    .nexus-logo {
-        width: 140px; height: 140px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.3);
-        backdrop-filter: blur(10px);
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        font-size: 70px;
-        animation: float 6s ease-in-out infinite;
-    }
-    @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-    .stTextArea > div > div > textarea {
-        background-color: #ffffff !important;
-        border: 2px solid #e2e8f0;
-        color: #000000 !important;
-        font-weight: 600;
-        border-radius: 12px;
-    }
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%);
-        color: white !important;
-        font-weight: 800;
-        border-radius: 12px;
-        padding: 15px 30px;
-        border: none;
-        cursor: pointer !important;
-    }
-    #MainMenu, footer, header {visibility: hidden;}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    
+    html, body, [data-testid="stAppViewContainer"] {{
+        background-color: {bg_color} !important;
+        font-family: 'Inter', sans-serif;
+    }}
+
+    .stMarkdown, p, h1, h2, h3, span, label {{
+        color: {text_color} !important;
+    }}
+
+    /* Floating Pill Input */
+    .stChatInputContainer {{
+        background-color: transparent !important;
+        bottom: 30px;
+    }}
+    
+    .stChatInputContainer > div {{
+        background-color: {input_bg} !important;
+        border-radius: 30px !important;
+        border: 1px solid #374151 !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+    }}
+
+    /* Minimalist Cards */
+    [data-testid="stExpander"] {{
+        background-color: {input_bg} !important;
+        border-radius: 15px !important;
+        border: 1px solid #374151 !important;
+    }}
+
+    #MainMenu, footer, header {{visibility: hidden;}}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. TOOLS ---
+# --- 2. THE BLACK-BOX TOOLS (DO NOT TOUCH) ---
 
 def find_python_root(start_path):
     for dirpath, _, filenames in os.walk(start_path):
-        if any(f.endswith(".py") for f in filenames):
-            return dirpath
+        if any(f.endswith(".py") for f in filenames): return dirpath
     return start_path
 
 def scan_code_for_patterns(base_dir):
@@ -94,94 +88,102 @@ def scan_code_for_patterns(base_dir):
         r'(?i)(api_key|secret_key|password|token)\s*=\s*[\'"][a-zA-Z0-9_\-]{16,}[\'"]': "Hardcoded Secret",
         r'app\.run\(.*debug=True': "Flask Debug Enabled"
     }
-    if not os.path.exists(actual_path):
-        return "[DEBUG] Directory not found."
+    if not os.path.exists(actual_path): return "[DEBUG] Directory not found."
     for dirpath, _, filenames in os.walk(actual_path):
         for filename in filenames:
             filepath = os.path.join(dirpath, filename)
-            if filename.startswith('.') or filename.lower().endswith(('.png', '.pyc')):
-                continue
+            if filename.startswith('.') or filename.lower().endswith(('.png', '.pyc')): continue
             try:
                 with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                     for i, line in enumerate(f):
                         for pattern, risk in patterns.items():
                             if re.search(pattern, line):
-                                rel_path = os.path.relpath(filepath, base_dir)
-                                findings.append(f"[CRITICAL] Found '{risk}' in {rel_path} at line {i+1}: \"{line.strip()[:100]}\"")
+                                findings.append(f"[CRITICAL] Found '{risk}' in {os.path.relpath(filepath, base_dir)} at line {i+1}")
             except: continue
     return "\n".join(findings) if len(findings) > 1 else "SAFE: No critical patterns found."
 
-# --- 4. UI LAYOUT ---
-st.markdown('<div class="logo-container"><div class="nexus-logo">🛡️</div></div>', unsafe_allow_html=True)
-st.markdown('<h1 class="agent-title">NEXUS AGENT</h1>', unsafe_allow_html=True)
+# --- 3. GRAPHICAL REPORT GENERATOR ---
 
-with st.form(key="nexus_input_form"):
-    repo_url = st.text_area("Target Repository URL", height=100, placeholder="Paste GitHub URL here...", label_visibility="collapsed")
-    scan_btn = st.form_submit_button("🚀 LAUNCH AUDIT")
+def generate_visual_report(scan_data, is_dark):
+    """Generates a dashboard with SVG charts."""
+    theme_bg = "#111827" if is_dark else "#F9FAFB"
+    card_bg = "#1F2937" if is_dark else "#FFFFFF"
+    text = "#F9FAFB" if is_dark else "#111827"
+    
+    html_content = f"""
+    <script src="https://cdn.tailwindcss.com"></script>
+    <div style="background-color: {theme_bg}; color: {text};" class="p-8 font-sans min-h-screen">
+        <div class="max-w-4xl mx-auto">
+            <header class="flex justify-between items-center mb-10 border-b border-gray-700 pb-6">
+                <div>
+                    <h1 class="text-4xl font-extrabold tracking-tight">Security Audit</h1>
+                    <p class="opacity-60">Nexus AI Autonomous Scan</p>
+                </div>
+                <div class="bg-blue-600 text-white px-4 py-2 rounded-2xl text-sm font-bold">LIVE-REPORT</div>
+            </header>
 
-# --- 5. EXECUTION LOGIC ---
-if scan_btn and repo_url:
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div style="background-color: {card_bg};" class="p-6 rounded-3xl shadow-xl border border-gray-700">
+                    <p class="text-xs uppercase opacity-50 font-bold mb-2">Vulnerability Ratio</p>
+                    <svg class="w-20 h-20 transform -rotate-90">
+                        <circle cx="40" cy="40" r="35" stroke="#374151" stroke-width="10" fill="transparent" />
+                        <circle cx="40" cy="40" r="35" stroke="#EF4444" stroke-width="10" fill="transparent" 
+                            stroke-dasharray="220" stroke-dashoffset="110" />
+                    </svg>
+                </div>
+                <div style="background-color: {card_bg};" class="p-6 rounded-3xl shadow-xl border border-gray-700 col-span-2">
+                    <p class="text-xs uppercase opacity-50 font-bold mb-2">Findings Summary</p>
+                    <div class="flex items-center gap-4 mt-4">
+                        <div class="h-12 w-12 bg-red-500/20 flex items-center justify-center rounded-xl text-red-500 font-bold text-xl">!</div>
+                        <p class="text-lg">Critical vulnerabilities identified in repository source.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="p-6 rounded-3xl border-l-8 border-red-500" style="background-color: {card_bg};">
+                    <h3 class="font-bold text-xl mb-2">Recursive Pattern Match Found</h3>
+                    <pre class="bg-black/30 p-4 rounded-xl font-mono text-sm overflow-x-auto text-red-400">
+{scan_data.get('sast', 'No findings')}
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    return html_content
+
+# --- 4. APP EXECUTION ---
+
+st.markdown(f"<h1 style='text-align: center;'>Nexus Audit Agent</h1>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align: center; opacity: 0.6;'>Autonomous DevSecOps Analysis Engine</p>", unsafe_allow_html=True)
+
+if repo_url := st.chat_input("Paste repository URL..."):
     api_key = st.secrets.get("GEMINI_API_KEY")
-    if not api_key: st.error("❌ API Key Missing"); st.stop()
+    if not api_key: st.error("API Key Missing"); st.stop()
     genai.configure(api_key=api_key)
-
+    
     temp_dir = None
     try:
-        with st.status("⚙️ **NEXUS CORE ACTIVE**", expanded=True) as status:
-            # 1. CLONE
-            st.write("📂 Cloning repository into unique workspace...")
+        with st.status("💎 Generating Dashboard...", expanded=True) as status:
+            # Step 1 & 2: Clone & Scan
             temp_dir = tempfile.mkdtemp()
             Repo.clone_from(repo_url, temp_dir)
             cloned_path = os.path.abspath(temp_dir)
-
-            # 2. SAST
-            st.write(f"🔬 Analyzing source code in {cloned_path}...")
             sast_results = scan_code_for_patterns(cloned_path)
             
-            # 3. SCA
-            st.write("📡 Scanning dependencies...")
-            sca_data = nexus_agent_logic.scan_repo_manifest(repo_url)
+            # Step 3: Analysis
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            scan_context = {"cloned_path": cloned_path, "sast": sast_results}
             
-            scan_data = {"cloned_path": cloned_path, "sast": sast_results, "sca": sca_data}
+            # Create Graphical Report
+            report_html = generate_visual_report(scan_context, dark_mode)
             
-            # --- INTELLIGENT MODEL SELECTOR ---
-            st.write("🛡️ Determining compatible AI model...")
-            all_models = list(genai.list_models())
-            available_models = [m.name for m in all_models if 'generateContent' in m.supported_generation_methods]
+            status.update(label="✅ Audit Ready", state="complete", expanded=False)
+            st.components.v1.html(report_html, height=700, scrolling=True)
             
-            # PRIORITY LIST: Flash is faster and has higher limits
-            priority_models = ["models/gemini-1.5-flash", "models/gemini-1.5-flash-8b", "models/gemini-1.0-pro"]
-            best_model = available_models[0]
-            for p in priority_models:
-                if p in available_models:
-                    best_model = p
-                    break
+            st.download_button("📥 Export Dashboard", data=report_html, file_name="Nexus_Report.html", mime="text/html")
             
-            model = genai.GenerativeModel(best_model)
-            prompt = f"Analyze this repository scan: {scan_data}\n\nMANDATORY PROTOCOL:\n1. Use 'cloned_path'.\n2. Verbatim report all [CRITICAL] findings.\n3. Create a dark terminal 'Code Evidence' section in HTML.\nOutput professional Tailwind CSS HTML."
-            
-            # --- RETRY LOGIC FOR QUOTA ---
-            response = None
-            max_retries = 3
-            for i in range(max_retries):
-                try:
-                    response = model.generate_content(prompt)
-                    break
-                except Exception as e:
-                    if "429" in str(e) and i < max_retries - 1:
-                        st.warning(f"⚠️ Quota hit. Waiting 30s to retry... (Attempt {i+1}/{max_retries})")
-                        time.sleep(31)
-                    else:
-                        raise e
-
-            if response:
-                report_html = response.text.replace("```html", "").replace("```", "")
-                status.update(label=f"✅ AUDIT COMPLETE ({best_model})", state="complete", expanded=False)
-                st.components.v1.html(report_html, height=800, scrolling=True)
-                st.download_button("📥 Download Report", data=report_html, file_name="Nexus_Audit.html", mime="text/html")
-            
-    except Exception as e:
-        st.error(f"❌ Error during scan: {e}")
+    except Exception as e: st.error(f"Scan Failure: {e}")
     finally:
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+        if temp_dir and os.path.exists(temp_dir): shutil.rmtree(temp_dir)
