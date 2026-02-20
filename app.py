@@ -102,18 +102,18 @@ HTML_TEMPLATE = """
 <head>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #0f172a; color: #cbd5e1; font-family: sans-serif; }
-        .glass { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); }
-        .sev-critical { border-left: 4px solid #ef4444; }
-        .sev-high { border-left: 4px solid #f97316; }
-        .hidden { display: none; }
+        body {{ background-color: #0f172a; color: #cbd5e1; font-family: sans-serif; }}
+        .glass {{ background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); }}
+        .sev-critical {{ border-left: 4px solid #ef4444; }}
+        .sev-high {{ border-left: 4px solid #f97316; }}
+        .hidden {{ display: none; }}
     </style>
     <script>
-        function filterSev(level) {
-            document.querySelectorAll('.f-card').forEach(c => {
+        function filterSev(level) {{
+            document.querySelectorAll('.f-card').forEach(c => {{
                 c.classList.toggle('hidden', level !== 'all' && c.dataset.sev !== level);
-            });
-        }
+            }});
+        }}
     </script>
 </head>
 <body class="p-8"><div class="max-w-5xl mx-auto">
@@ -273,3 +273,4 @@ if scan_btn and repo_input:
 # Render Report
 if "current_report" in st.session_state:
     components.html(st.session_state.current_report, height=800, scrolling=True)
+
