@@ -2,12 +2,25 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import datetime
+import tempfile
+import os
+import shutil
+import json
+import re
+from git import Repo
+import google.generativeai as genai
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Import your core logic safely!
 import nexus_agent_logic 
 
+# --- 1. API KEY SETUP ---
+# (Make sure to configure Gemini here before calling the model)
+api_key = st.secrets.get("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+
+# ... [The rest of your code starts here with Database Setup] ...
 # --- 1. DATABASE SETUP ---
 Base = declarative_base()
 class SecurityAudit(Base):
@@ -185,3 +198,4 @@ if scan_btn and repo_input:
 # Render Report
 if "current_report" in st.session_state:
     components.html(st.session_state.current_report, height=800, scrolling=True)
+
