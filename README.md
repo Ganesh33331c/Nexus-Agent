@@ -1,63 +1,155 @@
-# 🛡️ Nexus: Proactive DevSecOps AI Agent
+# NEXUS Frontend — Next.js DevSecOps UI
 
-![Status](https://img.shields.io/badge/Status-Active-success)
-![AI Model](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-blue)
-![Platform](https://img.shields.io/badge/Stack-Streamlit%20%7C%20Python-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
+> **Midnight Cyber** aesthetic · Split-screen workspace · Streaming AI chat · Real-time terminal
 
-> **"Security shouldn't be a bottleneck. It should be autonomous."**
+## 🚀 Quick Start
 
-## 🚀 Overview
-
-**Nexus** is an autonomous AI security engineer designed to bridge the gap between "Detection" and "Remediation."
-
-Traditional DevSecOps pipelines are reactive—they flood developers with generic vulnerability tickets weeks after code is written. Nexus flips the script. It is an agentic system that **proactively audits** code repositories, **correlates** findings with live CVE intelligence, and **generates** instant, drop-in code patches.
-
-This project was built as a **Capstone for the Google AI Agents Intensive**, demonstrating the use of Agentic Workflows, Custom Tooling, and the Gemini 2.5 Flash model.
-
-## 📸 Demo & Screenshots
-
-**[👉 Click Here to Try the Live Demo](https://nexus-agent.streamlit.app)**
-
-### The Architecture
-![Architecture Diagram](https://via.placeholder.com/800x400?text=Upload+Your+Architecture+Screenshot+Here)
-*Nexus uses a multi-step reasoning loop: Fetch Manifest -> Scan Intelligence -> Correlate -> Generate Report.*
-
-### The Output (Automated Remediation)
-![Report Screenshot](https://via.placeholder.com/800x400?text=Upload+Screenshot+of+Nexus+Report+Here)
-*Nexus generating a precise patch for a Flask SQL Injection vulnerability.*
-
-## ✨ Key Capabilities
-
-* **🕵️ Autonomous Auditing:** Bypasses standard context windows by using a custom Python tool (`nexus_agent_logic.py`) to surgically extract dependency manifests via the GitHub API.
-* **🧠 Intelligent Correlation:** Uses **Google Gemini 2.5** to cross-reference raw version numbers (e.g., `Flask==0.12`) against a knowledge base of CVEs and Exploit-DB data.
-* **🛠️ Instant Remediation:** Doesn't just find the bug—it writes the fix. The `RemediationAgent` generates JSON-formatted patches ready for implementation.
-* **📊 Executive Reporting:** Outputs a fully responsive, Tailwind CSS-styled HTML dashboard for security teams.
-
-## 🏗️ Technical Architecture
-
-This project moves beyond simple "chatbots" by implementing a **Tool-Use Architecture**:
-
-1.  **User Input:** Accepts a GitHub Repository URL.
-2.  **Tool Execution:** The `Scan_Repo_Manifest` tool fires. Instead of cloning the massive repo (which causes timeouts), it hits the GitHub API to fetch only critical files (`requirements.txt`, `package.json`).
-3.  **Reasoning Loop:**
-    * *Intel Agent:* Identifies outdated packages.
-    * *Context Agent:* Retrieves vulnerability data for those specific versions.
-    * *Coder Agent:* Writes the remediation patch.
-4.  **Final Generation:** Streamlit renders the structured output into a clean UI.
-
-## 💻 Tech Stack
-
-* **Orchestration:** Python 3.10
-* **Frontend:** Streamlit Community Cloud
-* **LLM Powerhouse:** Google Gemini 2.5 Flash (via `google-generativeai` SDK)
-* **Security Tools:** Custom GitHub API Scanner, `python-dotenv` for secret management.
-
-## ⚙️ Installation & Local Run
-
-Want to run Nexus on your own machine?
-
-**1. Clone the Repository**
 ```bash
-git clone [https://github.com/YOUR_USERNAME/nexus-agent.git](https://github.com/YOUR_USERNAME/nexus-agent.git)
-cd nexus-agent# Nexus
+cd nexus-frontend
+
+# 1. Install dependencies
+npm install
+
+# 2. (Optional) create .env.local to point at your FastAPI backend
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
+# 3. Start dev server
+npm run dev
+```
+
+Open **http://localhost:3000**.
+
+---
+
+## 📁 Project Structure
+
+```
+nexus-frontend/
+├── app/
+│   ├── globals.css          # Glassmorphism 2.0, cyber grid, custom scrollbars
+│   ├── layout.tsx           # Root layout + Google Fonts (Orbitron, JetBrains Mono, Exo 2)
+│   └── page.tsx             # ← MAIN PAGE: split-screen workspace
+│
+├── components/
+│   ├── chat/
+│   │   ├── ChatPanel.tsx    # Conversational AI chat (streaming SSE)
+│   │   └── TemporalLoader.tsx # Glowing text wave loading animation (Framer Motion)
+│   ├── terminal/
+│   │   └── TerminalWidget.tsx # Syntax-highlighted terminal output
+│   ├── ui/
+│   │   └── NexusCorePanel.tsx # Spline 3D iframe + animated SVG fallback
+│   └── layout/
+│       └── TopNav.tsx       # Header with live stats
+│
+└── lib/
+    └── api.ts               # Axios client + streamChat() + streamScan() SSE utilities
+```
+
+---
+
+## 🔌 Backend Integration (`lib/api.ts`)
+
+The frontend connects to your **FastAPI** backend on `http://localhost:8000`.
+
+### Required endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/chat` | Stream chat response (SSE) |
+| `POST` | `/scan` | Trigger repo scan |
+| `POST` | `/scan/stream` | Stream terminal scan output (SSE) |
+| `GET`  | `/history` | Fetch audit history |
+| `GET`  | `/report/:id` | Fetch specific report |
+
+### SSE Event Format (FastAPI)
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import asyncio
+
+@app.post("/chat")
+async def chat(body: dict):
+    async def stream():
+        for chunk in your_gemini_stream(body["messages"]):
+            yield f"data: {chunk}\n\n"
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(stream(), media_type="text/event-stream")
+```
+
+---
+
+## 🎨 Design System
+
+### Fonts (loaded via Google Fonts)
+- **Orbitron** — headings, labels, monospace UI elements
+- **JetBrains Mono** — terminal output, code
+- **Exo 2** — body text, chat bubbles
+
+### Color Palette
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `--cyan-neon` | `#00f5ff` | Primary accent, borders, scan active |
+| `--violet-neon` | `#a855f7` | AI response bubbles, secondary |
+| `--void-900` | `#060d1a` | Background panels |
+| `#ff4757` | red | CRITICAL findings |
+| `#ffa502` | orange | WARNING |
+| `#2ed573` | green | SUCCESS / SAFE |
+
+### Glassmorphism classes
+```css
+.glass-panel  /* Full frosted panel — main containers */
+.glass-card   /* Lighter card — suggestions, stats */
+.cyber-input  /* Form inputs with cyan glow */
+.btn-cyber    /* Orbitron uppercase buttons */
+.btn-send     /* Pulsing send button */
+```
+
+---
+
+## 🌐 Embedding Your Spline 3D Core
+
+1. Create your scene at [spline.design](https://spline.design)
+2. Export → "Embed on website" → copy the iframe URL
+3. Open `app/page.tsx` and set:
+
+```ts
+const SPLINE_URL = "https://my.spline.design/your-scene-id/";
+```
+
+The animated SVG fallback renders automatically when no URL is provided.
+
+---
+
+## 🔧 Environment Variables
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000   # FastAPI backend
+```
+
+---
+
+## 📦 Dependencies
+
+```json
+{
+  "next": "14.2.3",
+  "framer-motion": "^11",
+  "lucide-react": "^0.383",
+  "axios": "^1.7"
+}
+```
+
+---
+
+## 🛠 Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+---
+
+Built with ⚡ by Nexus DevSecOps Agent
