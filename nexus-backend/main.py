@@ -29,14 +29,14 @@ if GEMINI_API_KEY != "YOUR_GEMINI_API_KEY_HERE":
 app = FastAPI(title="Nexus DevSecOps API")
 
 # Allow Next.js frontend (port 3000) to talk to this backend (port 8000)
+# Allow live Vercel frontend to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],  # <--- THIS IS THE FIX (Allows any frontend to connect)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # --- 2. DATABASE SETUP ---
 Base = declarative_base()
 class SecurityAudit(Base):
