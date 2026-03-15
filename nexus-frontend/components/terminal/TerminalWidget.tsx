@@ -125,7 +125,7 @@ export default function TerminalWidget({ externalLines, isScanning = false }: Te
     URL.revokeObjectURL(url);
   };
 
-  // ─── PREMIUM HTML REPORT GENERATOR ───
+  // ─── DYNAMIC HTML REPORT GENERATOR ───
   const downloadHtmlReport = async () => {
     if (!auditId) return;
     try {
@@ -141,60 +141,68 @@ export default function TerminalWidget({ externalLines, isScanning = false }: Te
         }
       });
 
-      const cardsHtml = findings.map((f: any) => {
+      const totalHighRisk = counts.critical + counts.high;
+      const totalModerateRisk = counts.medium + counts.low;
+
+      // --- PREMIUM BENTO-BOX HTML LAYOUT ---
+      const cardsHtml = findings.map((f: any, index: number) => {
         const sev = (f.severity || "low").toLowerCase();
         
-        // Semantic color mapping for UI elements
-        let badgeStyle = "bg-green-100 text-green-800 border-green-200";
-        let cardBorder = "border-l-[6px] border-l-green-500";
-        let iconColor = "text-green-500";
-        
-        if (sev === "critical") {
-          badgeStyle = "bg-red-100 text-red-800 border-red-200";
-          cardBorder = "border-l-[6px] border-l-red-600";
-          iconColor = "text-red-600";
-        } else if (sev === "high") {
-          badgeStyle = "bg-orange-100 text-orange-800 border-orange-200";
-          cardBorder = "border-l-[6px] border-l-orange-500";
-          iconColor = "text-orange-500";
+        let sevClass = "";
+        let sevBg = "";
+        let sevText = "";
+        let sevBorder = "";
+
+        if (sev === "critical" || sev === "high") {
+            sevClass = "severity-high border-l-4 border-l-destructive";
+            sevBg = "bg-destructive/20";
+            sevText = "text-destructive";
+            sevBorder = "border-destructive/30";
         } else if (sev === "medium") {
-          badgeStyle = "bg-yellow-100 text-yellow-800 border-yellow-200";
-          cardBorder = "border-l-[6px] border-l-yellow-400";
-          iconColor = "text-yellow-500";
+            sevClass = "severity-medium border-l-4 border-l-warning";
+            sevBg = "bg-warning/20";
+            sevText = "text-warning";
+            sevBorder = "border-warning/30";
+        } else {
+            sevClass = "border-l-4 border-l-primary";
+            sevBg = "bg-primary/20";
+            sevText = "text-primary";
+            sevBorder = "border-primary/30";
         }
 
+        const findingId = `SEC-${String(index + 1).padStart(3, '0')}`;
+
         return `
-        <div class="f-card bg-white rounded-xl shadow-sm border border-slate-200 ${cardBorder} overflow-hidden mb-6 transition-all hover:shadow-md" data-sev="${sev}">
-            <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <svg class="w-6 h-6 ${iconColor}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    <h3 class="text-xl font-bold text-slate-800 m-0">${f.title || 'Unknown Finding'}</h3>
-                </div>
-                <span class="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border ${badgeStyle}">${sev}</span>
-            </div>
-            
-            <div class="p-6">
-                <p class="text-slate-600 text-sm leading-relaxed mb-6">${f.description || 'No description provided.'}</p>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-slate-900 rounded-lg overflow-hidden flex flex-col">
-                        <div class="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
-                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                            <span class="text-xs text-slate-300 font-mono uppercase tracking-wider">Proof of Concept</span>
-                        </div>
-                        <div class="p-4 overflow-x-auto flex-1">
-                            <code class="text-sm text-pink-400 font-mono whitespace-pre-wrap">${f.poc || 'N/A'}</code>
-                        </div>
+        <div class="vulnerability-card glass-panel rounded-[2rem] p-8 border border-white/10 ${sevClass}" data-sev="${sev}">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="px-3 py-1 rounded-full ${sevBg} ${sevText} text-[10px] font-extrabold uppercase tracking-widest border ${sevBorder}">${sev} Severity</span>
+                        <span class="text-muted-foreground text-sm font-mono">ID: ${findingId}</span>
                     </div>
+                    <h3 class="font-display text-2xl font-bold">${f.title || 'Unknown Finding'}</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 mb-2">
+                <div class="space-y-4">
+                    <h4 class="text-sm font-bold uppercase tracking-widest text-primary/80">Analysis</h4>
+                    <p class="text-muted-foreground leading-relaxed">
+                        ${f.description || 'No description provided.'}
+                    </p>
                     
-                    <div class="bg-slate-900 rounded-lg overflow-hidden flex flex-col">
-                        <div class="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
-                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                            <span class="text-xs text-slate-300 font-mono uppercase tracking-wider">Remediation Guide</span>
-                        </div>
-                        <div class="p-4 overflow-x-auto flex-1">
-                            <code class="text-sm text-emerald-400 font-mono whitespace-pre-wrap">${f.fix || 'N/A'}</code>
-                        </div>
+                    ${f.poc && f.poc !== 'N/A' ? `
+                    <div class="pt-4">
+                        <h4 class="text-[10px] font-bold uppercase tracking-widest text-primary/50 mb-2">Proof of Concept</h4>
+                        <pre class="bg-black/40 p-4 rounded-xl border border-white/10 font-mono text-xs text-pink-300 overflow-x-auto whitespace-pre-wrap">${f.poc}</pre>
+                    </div>` : ''}
+                </div>
+                
+                <div class="space-y-4 flex flex-col">
+                    <h4 class="text-sm font-bold uppercase tracking-widest text-primary/80">Remediation Patch</h4>
+                    <div class="relative group flex-1">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-xl blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+                        <pre class="relative h-full bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-sm overflow-x-auto text-emerald-300 whitespace-pre-wrap">${f.fix || 'Manual intervention required.'}</pre>
                     </div>
                 </div>
             </div>
@@ -202,156 +210,203 @@ export default function TerminalWidget({ externalLines, isScanning = false }: Te
       }).join("");
 
       const htmlString = `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Nexus Security Audit: ${data.repo_name}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-          <style>
-              body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #334155; }
-              .font-mono { font-family: 'JetBrains Mono', monospace; }
-              .bg-grid-pattern {
-                  background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
-                  background-size: 24px 24px;
-              }
-              .hidden-card { display: none !important; }
-          </style>
-          <script>
-              function filterSev(level, btnElement) {
-                  // Toggle cards
-                  document.querySelectorAll('.f-card').forEach(c => {
-                      if (level === 'all') {
-                          c.classList.remove('hidden-card');
-                      } else {
-                          c.classList.toggle('hidden-card', c.dataset.sev !== level);
-                      }
-                  });
-                  
-                  // Update active button styling
-                  document.querySelectorAll('.filter-btn').forEach(b => {
-                      b.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400');
-                  });
-                  btnElement.classList.add('ring-2', 'ring-offset-2', 'ring-slate-400');
-              }
-          </script>
-      </head>
-      <body class="antialiased min-h-screen pb-12">
-          
-          <div class="bg-slate-900 text-white w-full py-4 px-8 shadow-md">
-              <div class="max-w-7xl mx-auto flex justify-between items-center">
-                  <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/30">N</div>
-                      <h1 class="text-xl font-bold tracking-tight">NEXUS <span class="text-cyan-400 font-normal">DevSecOps Engine</span></h1>
-                  </div>
-                  <div class="text-right flex items-center gap-4">
-                      <div class="text-sm text-slate-400 border-r border-slate-700 pr-4">
-                          Generated: <span class="text-white font-mono">${new Date().toLocaleString()}</span>
-                      </div>
-                      <div class="text-sm font-medium bg-slate-800 px-3 py-1 rounded border border-slate-700">
-                          CONFIDENTIAL
-                      </div>
-                  </div>
-              </div>
-          </div>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Analysis | ${data.repo_name}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: "hsl(222.2 84% 4.9%)",
+                        foreground: "hsl(210 40% 98%)",
+                        primary: { DEFAULT: "hsl(217.2 91.2% 59.8%)", foreground: "hsl(222.2 47.4% 11.2%)" },
+                        secondary: { DEFAULT: "hsl(217.2 32.6% 12%)", foreground: "hsl(210 40% 98%)" },
+                        destructive: { DEFAULT: "hsl(0 84.2% 60.2%)", foreground: "hsl(210 40% 98%)" },
+                        warning: { DEFAULT: "hsl(38 92% 50%)", foreground: "hsl(210 40% 98%)" },
+                        muted: { DEFAULT: "hsl(217.2 32.6% 17.5%)", foreground: "hsl(215 20.2% 65.1%)" },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #020617;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(217, 91%, 60%, 0.07) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(210, 40%, 98%, 0.03) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .vulnerability-card { transition: transform 0.2s ease-out, border-color 0.2s ease; }
+        .vulnerability-card:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.15); }
+        .severity-high { box-shadow: 0 0 20px -5px rgba(239, 68, 68, 0.3); }
+        .severity-medium { box-shadow: 0 0 20px -5px rgba(245, 158, 11, 0.2); }
+        pre::-webkit-scrollbar { height: 4px; }
+        pre::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="text-foreground font-sans antialiased min-h-screen">
 
-          <div class="max-w-7xl mx-auto px-8 mt-10">
-              
-              <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-10 bg-grid-pattern relative overflow-hidden">
-                  <div class="absolute inset-0 bg-white/80 backdrop-blur-[2px]"></div>
-                  
-                  <div class="relative z-10 flex flex-col md:flex-row gap-8 items-center">
-                      <div class="flex-1">
-                          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Target Repository</h2>
-                          <p class="text-3xl font-bold text-slate-800 mb-6 font-mono">${data.repo_name}</p>
-                          <p class="text-slate-600 mb-6 max-w-xl">
-                              This executive report details the security vulnerabilities discovered during the automated static and software composition analysis. Vulnerabilities are categorized by severity based on potential business impact.
-                          </p>
-                          
-                          <div class="flex gap-2">
-                              <button onclick="filterSev('all', this)" class="filter-btn ring-2 ring-offset-2 ring-slate-400 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-all border border-slate-300 shadow-sm">All Findings</button>
-                              <button onclick="filterSev('critical', this)" class="filter-btn px-6 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-semibold rounded-lg transition-all border border-red-200 shadow-sm">Critical</button>
-                              <button onclick="filterSev('high', this)" class="filter-btn px-6 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 text-sm font-semibold rounded-lg transition-all border border-orange-200 shadow-sm">High</button>
-                          </div>
-                      </div>
-                      
-                      <div class="w-full md:w-auto bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-inner flex items-center gap-8">
-                          <div class="w-40 h-40">
-                              <canvas id="severityChart"></canvas>
-                          </div>
-                          <div class="flex flex-col gap-3 min-w-[120px]">
-                              <div class="flex justify-between items-center"><span class="text-sm font-medium text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-red-600"></div>Critical</span> <span class="font-bold text-slate-800">${counts.critical}</span></div>
-                              <div class="flex justify-between items-center"><span class="text-sm font-medium text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-orange-500"></div>High</span> <span class="font-bold text-slate-800">${counts.high}</span></div>
-                              <div class="flex justify-between items-center"><span class="text-sm font-medium text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-yellow-400"></div>Medium</span> <span class="font-bold text-slate-800">${counts.medium}</span></div>
-                              <div class="flex justify-between items-center"><span class="text-sm font-medium text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-green-500"></div>Low</span> <span class="font-bold text-slate-800">${counts.low}</span></div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
+    <header class="sticky top-0 z-50 w-full border-b border-white/10 glass-panel">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex h-20 items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                        <h1 class="font-display font-extrabold text-xl tracking-tight">Security Analysis Report</h1>
+                        <p class="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">NEXUS AI DEVSECOPS AUDIT</p>
+                    </div>
+                </div>
+                <div class="hidden md:block">
+                    <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.28 1.15-.28 2.35 0 3.5-.73 1.02-1.08 2.25-1 3.5 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+                        ${data.repo_name}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
 
-              <h2 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                  <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                  Detailed Vulnerability Breakdown
-              </h2>
-              
-              <div class="space-y-2">
-                  ${cardsHtml}
-              </div>
-              
-              <div class="mt-16 pt-8 border-t border-slate-200 text-center text-sm text-slate-500">
-                  <p>Automated security intelligence provided by the <strong>Nexus Core System</strong>.</p>
-                  <p class="mt-1 opacity-70">Strictly confidential. Unauthorized distribution is prohibited.</p>
-              </div>
-          </div>
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <section class="mb-16">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-2 glass-panel rounded-3xl p-8 border border-white/10 relative overflow-hidden group flex flex-col justify-center">
+                    <div class="absolute -right-10 -top-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all"></div>
+                    <h2 class="font-display text-2xl font-bold mb-4">Executive Summary</h2>
+                    <p class="text-muted-foreground leading-relaxed mb-6">
+                        The Nexus AI Agent autonomously scanned the target repository and identified <span class="text-white font-bold">${findings.length} total vulnerabilities</span>. 
+                        Based on the analysis, there are <span class="text-destructive font-bold">${totalHighRisk} high/critical risks</span> that require immediate mitigation. Please review the specific remediation patches below.
+                    </p>
+                    <div class="flex flex-wrap gap-4 text-xs font-mono">
+                        <div class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Scan Date: ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                        <div class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">Type: AI SAST/SCA Audit</div>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-6">
+                    <div class="flex-1 glass-panel rounded-3xl p-6 border-l-4 border-l-destructive severity-high flex flex-col justify-center">
+                        <span class="text-muted-foreground text-sm font-medium">Critical / High Risks</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-4xl font-display font-extrabold text-destructive">${totalHighRisk}</span>
+                            <span class="text-muted-foreground font-medium">Flags Raised</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 glass-panel rounded-3xl p-6 border-l-4 border-l-warning severity-medium flex flex-col justify-center">
+                        <span class="text-muted-foreground text-sm font-medium">Moderate / Low Risks</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-4xl font-display font-extrabold text-warning">${totalModerateRisk}</span>
+                            <span class="text-muted-foreground font-medium">Flags Raised</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-          <script>
-              document.addEventListener('DOMContentLoaded', function() {
-                  const ctx = document.getElementById('severityChart');
-                  new Chart(ctx, {
-                      type: 'doughnut',
-                      data: {
-                          labels: ['Critical', 'High', 'Medium', 'Low'],
-                          datasets: [{
-                              data: [${counts.critical}, ${counts.high}, ${counts.medium}, ${counts.low}],
-                              backgroundColor: [
-                                  '#dc2626', // red-600
-                                  '#f97316', // orange-500
-                                  '#facc15', // yellow-400
-                                  '#22c55e'  // green-500
-                              ],
-                              borderWidth: 0,
-                              hoverOffset: 4
-                          }]
-                      },
-                      options: {
-                          responsive: true,
-                          cutout: '75%',
-                          plugins: {
-                              legend: {
-                                  display: false // We built a custom legend next to it
-                              },
-                              tooltip: {
-                                  callbacks: {
-                                      label: function(context) {
-                                          return ' ' + context.label + ': ' + context.raw;
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  });
-              });
-          </script>
-      </body>
-      </html>`;
+        <section class="space-y-8">
+            <div class="flex justify-between items-end mb-8">
+                <h2 class="font-display text-3xl font-extrabold flex items-center gap-3">
+                    <span class="w-8 h-1 bg-primary rounded-full"></span>
+                    Vulnerability Details
+                </h2>
+                <div class="hidden md:flex bg-white/5 p-1 rounded-lg border border-white/10 font-mono text-xs">
+                    <button onclick="filterSev('all')" class="px-4 py-2 rounded-md hover:bg-white/10 transition text-white">ALL</button>
+                    <button onclick="filterSev('critical')" class="px-4 py-2 rounded-md hover:bg-destructive/20 transition text-destructive">CRITICAL</button>
+                    <button onclick="filterSev('high')" class="px-4 py-2 rounded-md hover:bg-destructive/20 transition text-destructive">HIGH</button>
+                    <button onclick="filterSev('medium')" class="px-4 py-2 rounded-md hover:bg-warning/20 transition text-warning">MEDIUM</button>
+                </div>
+            </div>
+
+            ${cardsHtml}
+
+        </section>
+
+        <section class="mt-20">
+            <div class="bg-primary/5 rounded-[2.5rem] border border-primary/20 p-8 md:p-12 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-8 opacity-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h2 class="font-display text-3xl font-extrabold mb-8">General Recommendations</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24"/><polyline points="21 3 21 12 12 12"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold mb-1">Keep Dependencies Updated</h4>
+                            <p class="text-sm text-muted-foreground">Regularly update all dependencies to their latest stable versions for security patches and bug fixes.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold mb-1">Automated Scanning</h4>
+                            <p class="text-sm text-muted-foreground">Integrate automated dependency scanning into CI/CD pipelines for continuous vulnerability identification.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold mb-1">Dependency Locking</h4>
+                            <p class="text-sm text-muted-foreground">Use dependency locking mechanisms (e.g., pip freeze or package-lock.json) for deterministic and secure builds.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="w-10 h-10 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold mb-1">Thorough Testing</h4>
+                            <p class="text-sm text-muted-foreground">Conduct comprehensive testing after applying AI-suggested remediation code to ensure application stability.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="mt-12 mb-12 text-center p-8 rounded-3xl border border-dashed border-white/10 text-muted-foreground text-sm">
+            This report was generated autonomously by the Nexus AI Engine.
+        </div>
+    </main>
+
+    <script>
+        function filterSev(level) {
+            document.querySelectorAll('.vulnerability-card').forEach(c => {
+                c.classList.toggle('hidden', level !== 'all' && c.dataset.sev !== level);
+            });
+        }
+    </script>
+</body>
+</html>`;
 
       const blob = new Blob([htmlString], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Nexus_Security_Audit_${data.repo_name}.html`;
+      a.download = `Nexus_Security_Report_${data.repo_name}.html`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -386,7 +441,7 @@ export default function TerminalWidget({ externalLines, isScanning = false }: Te
           {auditId && (
             <button
               onClick={downloadHtmlReport}
-              title="Download Executive HTML Report"
+              title="Download HTML Report"
               style={{ background: "rgba(0, 245, 255, 0.1)", border: "1px solid rgba(0, 245, 255, 0.3)", cursor: "pointer", color: "#00f5ff", padding: "3px 8px", borderRadius: "4px", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.55rem", fontFamily: "'Orbitron', monospace", marginRight: "4px" }}
             >
               <FileText size={10} /> HTML REPORT
