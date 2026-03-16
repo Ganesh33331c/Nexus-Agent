@@ -4,28 +4,37 @@ import requests
 import tempfile
 import shutil
 import re
-from git import Repo # Make sure GitPython is in requirements.txt
-import google.generativeai as genai
+from git import Repo
+
+# --- LANGCHAIN & PYDANTIC IMPORTS (GOOGLE GEMINI) ---
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Literal
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # ─── 1. STRICT JSON SCHEMAS (PYDANTIC) ───
 class Vulnerability(BaseModel):
-    title: str = Field(description="The name of the vulnerability")
-    severity: str = Field(description="Must be exactly: Critical, High, Medium, or Low")
-    file_path: str = Field(description="The file where the vulnerability was found")
-    poc: str = Field(description="Proof of concept or code snippet showing the flaw")
-    remediation: str = Field(description="Actionable steps or code to fix the issue")
+    id: str = Field(description="A unique identifier (e.g., 'SEC-001', 'CVE-2023-1234').")
+    title: str = Field(description="A concise, professional title for the vulnerability.")
+    severity: Literal["critical", "high", "medium", "low"] = Field(description="The strict severity level.")
+    analysis: str = Field(
+        description="Write a detailed, 3-4 sentence explanation of the vulnerability. Explain why it is a security risk. Placeholders are strictly forbidden."
+    )
+    poc: str = Field(description="The exact file path, line of code, or dependency version that triggered the finding.")
+    remediation: str = Field(
+        description="Provide exact, actionable patch instructions (code changes, terminal commands, or version bumps). Vague advice is forbidden."
+    )
 
-class ScanReport(BaseModel):
-    scan_status: str = Field(description="Overall status, e.g., 'Completed', 'Failed'")
-    critical_count: int = Field(description="Total number of critical/high vulnerabilities")
-    vulnerabilities: List[Vulnerability]
+class SecurityReport(BaseModel):
+    scan_status: str = Field(description="Overall status (e.g., 'Completed - Action Required').")
+    critical_count: int = Field(description="Total number of critical vulnerabilities found.")
+    high_count: int = Field(description="Total number of high vulnerabilities found.")
+    medium_count: int = Field(description="Total number of medium vulnerabilities found.")
+    vulnerabilities: List[Vulnerability] = Field(description="The comprehensive list of all synthesized SAST and SCA findings.")
 
 
 # ─── 2. REPOSITORY CLONING ───
 def clone_repository(repo_url):
-    """Clones the repository to a temporary directory for SAST scanning."""
     temp_dir = tempfile.mkdtemp()
     try:
         Repo.clone_from(repo_url, temp_dir)
@@ -34,19 +43,16 @@ def clone_repository(repo_url):
         return None
 
 def cleanup(repo_path):
-    """Deletes the temporary repository files after scanning."""
     if repo_path and os.path.exists(repo_path):
         shutil.rmtree(repo_path, ignore_errors=True)
 
 
 # ─── 3. SAST SCANNER (Regex Engine) ───
 def run_sast(repo_path):
-    """Scans local cloned files for hardcoded secrets and bad practices."""
     if not repo_path:
         return "SAST Scan Failed: Repository not cloned."
     
     findings = []
-    # Common dangerous patterns (e.g., disabled SSL, exposed keys)
     patterns = {
         "Disabled SSL Verification": r"verify\s*=\s*False",
         "Hardcoded Secret Key": r"SECRET_KEY\s*=\s*['\"][a-zA-Z0-9_]+['\"]",
@@ -55,7 +61,6 @@ def run_sast(repo_path):
     }
 
     for root, dirs, files in os.walk(repo_path):
-        # Ignore .git folder
         if '.git' in dirs:
             dirs.remove('.git')
             
@@ -76,18 +81,14 @@ def run_sast(repo_path):
     return json.dumps(findings) if findings else "No SAST vulnerabilities found."
 
 
-# ─── 4. SCA SCANNER (Your Deep Scan Logic) ───
+# ─── 4. SCA SCANNER (Deep Scan via GitHub API) ───
 def run_sca(repo_url):
-    """
-    Nexus Agent Tool: Smart Deep Scan via GitHub API
-    """
     try:
         clean_url = repo_url.rstrip("/").rstrip(".git").split("github.com/")[-1]
     except:
         return json.dumps({"error": "Invalid URL format."})
 
     api_base = f"https://api.github.com/repos/{clean_url}/contents"
-    
     headers = {"Accept": "application/vnd.github.v3+json"}
     token = os.environ.get('GITHUB_TOKEN')
     
@@ -115,7 +116,6 @@ def run_sca(repo_url):
             return json.dumps({"error": f"GitHub API Error: {resp.status_code}"})
         
         root_files = resp.json()
-        report["debug_log"].append(f"Scanned Root: Found {len(root_files)} files")
         
         found_manifest = False
         for f in root_files:
@@ -126,13 +126,10 @@ def run_sca(repo_url):
                 break
         
         if not found_manifest:
-            report["debug_log"].append("Manifest not found in root. Scanning subfolders...")
             subfolders = [f for f in root_files if f['type'] == 'dir']
-            
             for folder in subfolders:
                 folder_url = f"{api_base}/{folder['name']}"
                 sub_resp = requests.get(folder_url, headers=headers, timeout=10)
-                
                 if sub_resp.status_code == 200:
                     sub_files = sub_resp.json()
                     for sub_f in sub_files:
@@ -150,43 +147,56 @@ def run_sca(repo_url):
     return json.dumps(report, indent=2)
 
 
-# ─── 5. DETERMINISTIC AI ANALYSIS ENGINE ───
+# ─── 5. DETERMINISTIC AI ANALYSIS ENGINE (GEMINI) ───
 def analyze_with_ai(sast_results, sca_results, repo_url):
-    """Feeds scan data to Gemini and forces a strict JSON Pydantic return."""
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-    
-    # Initialize the model with STRICT parameters
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        generation_config=genai.GenerationConfig(
-            temperature=0.0, # Zero creativity, purely deterministic
-            response_mime_type="application/json",
-            response_schema=ScanReport # Force adherence to our Pydantic schema
-        )
-    )
+    NEXUS_SYSTEM_PROMPT = """
+    You are the core intelligence engine of Nexus, an elite, autonomous Senior AppSec Engineer.
+    Your objective is to synthesize raw telemetry from our DevSecOps pipeline into a professional, actionable JSON report.
 
-    prompt = f"""
-    You are an expert DevSecOps AI Agent. Analyze the following security scan results for the repository: {repo_url}
-    
-    === SAST RESULTS (Code Flaws) ===
-    {sast_results}
-    
-    === SCA RESULTS (Dependency Flaws) ===
-    {sca_results}
-    
-    Task: Extract all vulnerabilities. Combine identical vulnerabilities into a single entry if they occur in the same file or module. 
-    Count the total number of Critical and High vulnerabilities for the 'critical_count' field.
-    Return the final output STRICTLY matching the requested JSON schema. Do not include markdown formatting.
+    You will receive raw logs from TWO distinct scanners for the repository: {repo_url}
+    1. SAST Scanner: Identifies static code flaws, hardcoded secrets, and injection risks.
+    2. SCA Scanner: Identifies outdated, vulnerable, or End-of-Life (EOL) dependencies.
+
+    YOUR DIRECTIVES:
+    - Synthesize both inputs. If the SCA scanner finds an outdated library, and the SAST scanner finds a flaw caused by it, correlate them.
+    - DO NOT drop SCA dependency findings. Every vulnerable package must be documented.
+    - Write deep, contextual analysis. Explain the 'Why'.
+    - Provide exact remediation steps. Explain the 'How'.
+    - Never use placeholder text like "No description provided".
+    - Combine identical SAST findings (e.g., if 'verify=False' appears 4 times, make it ONE vulnerability card and list the 4 lines in the POC).
     """
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", NEXUS_SYSTEM_PROMPT),
+        ("human", "=== SAST RAW LOGS ===\n{sast_raw}\n\n=== SCA RAW LOGS ===\n{sca_raw}")
+    ])
+
+    # Initialize Gemini with maximum determinism (Temperature = 0.0)
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
+        temperature=0.0,
+        google_api_key=os.environ.get("GEMINI_API_KEY")
+    )
+    
+    # Bind the Pydantic schema to the LLM
+    structured_llm = llm.with_structured_output(SecurityReport)
+    
+    chain = prompt_template | structured_llm
     
     try:
-        response = model.generate_content(prompt)
-        # Convert the guaranteed JSON string into a Python dictionary
-        return json.loads(response.text)
+        report_obj: SecurityReport = chain.invoke({
+            "repo_url": repo_url,
+            "sast_raw": sast_results,
+            "sca_raw": sca_results
+        })
+        return report_obj.model_dump()
+        
     except Exception as e:
-        # Fallback error JSON if AI fails
+        print(f"Nexus AI Engine Error: {e}")
         return {
-            "scan_status": f"AI Engine Failed: {str(e)}",
+            "scan_status": "Failed - Parsing Error",
             "critical_count": 0,
+            "high_count": 0,
+            "medium_count": 0,
             "vulnerabilities": []
         }
