@@ -123,9 +123,10 @@ async def scan_stream_endpoint(request: ScanRequest):
             sast_results = nexus_agent_logic.run_sast(temp_dir)
             yield emit("success", "SAST phase complete.")
             
-            yield emit("prompt", "Fetching manifest via GitHub API (SCA)...")
+            yield emit("prompt", "Parsing local manifests (SCA)...")
             await asyncio.sleep(1)
-            sca_results = nexus_agent_logic.run_sca(repo_url)
+            # CRITICAL FIX: Pass temp_dir instead of repo_url since we scan locally now
+            sca_results = nexus_agent_logic.run_sca(temp_dir)
             yield emit("success", "SCA phase complete.")
 
             yield emit("info", "Aggregating data streams for JSON-First AI analysis...")
@@ -163,7 +164,8 @@ async def run_full_scan_sync(repo_url: str):
     try:
         temp_dir = nexus_agent_logic.clone_repository(repo_url)
         sast_data = nexus_agent_logic.run_sast(temp_dir)
-        sca_data = nexus_agent_logic.run_sca(repo_url)
+        # CRITICAL FIX: Pass temp_dir instead of repo_url
+        sca_data = nexus_agent_logic.run_sca(temp_dir)
         json_report = nexus_agent_logic.analyze_with_ai(sast_data, sca_data, repo_url)
         nexus_agent_logic.cleanup(temp_dir)
         return json_report
