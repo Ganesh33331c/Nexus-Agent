@@ -14,22 +14,24 @@ import google.generativeai as genai
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MODEL RESOLVER  — never hardcode a model name again
+# MODEL RESOLVER
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Priority-ordered list: newest / most capable first.
-# The resolver tries each name and uses the first one the API confirms exists.
+# Priority-ordered list: highest free-tier quota first.
+# gemini-1.5-flash & flash-8b → 1500 req/day free
+# gemini-2.0-flash-lite       → only 200 req/day free  (kept last)
 _PREFERRED_MODELS = [
-   "gemini-1.5-flash",        
+    "gemini-1.5-flash",
     "gemini-1.5-flash-latest",
-    "gemini-2.0-flash-lite",
-    "gemini-2.0-flash",
+    "gemini-1.5-flash-8b",
     "gemini-1.5-pro-latest",
     "gemini-1.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-pro",
 ]
 
-_resolved_model: str | None = None   # cached after first successful lookup
+_resolved_model: str | None = None
 
 
 def _resolve_model() -> str:
@@ -37,12 +39,10 @@ def _resolve_model() -> str:
     Returns the best available Gemini model name.
 
     Strategy:
-      1. Return the cached result if already resolved this session.
-      2. Call ListModels (requires a valid API key) and pick the highest-priority
-         model from _PREFERRED_MODELS that supports generateContent.
-      3. If the API call fails (bad key, no network in CI, etc.) fall back to the
-         newest stable name so we still get a useful error message from the LLM
-         call itself rather than a silent crash here.
+      1. Return cached result if already resolved this session.
+      2. Call ListModels and pick the highest-priority model from
+         _PREFERRED_MODELS that supports generateContent.
+      3. Fall back to the first entry if the API call fails.
     """
     global _resolved_model
     if _resolved_model:
@@ -50,7 +50,6 @@ def _resolve_model() -> str:
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        # No key at all — let the LLM call surface the proper auth error
         _resolved_model = _PREFERRED_MODELS[0]
         print(f"[NEXUS][MODEL] GEMINI_API_KEY not set — defaulting to {_resolved_model}")
         return _resolved_model
@@ -73,14 +72,13 @@ def _resolve_model() -> str:
         # None of our preferred names matched — use whatever flash variant exists
         flash_models = sorted(
             (m for m in available if "flash" in m),
-            reverse=True   # lexicographic desc → newer dates sort higher
+            reverse=True
         )
         if flash_models:
             _resolved_model = flash_models[0]
             print(f"[NEXUS][MODEL] Fallback to first flash model found: {_resolved_model}")
             return _resolved_model
 
-        # Absolute last resort: any model that supports generateContent
         _resolved_model = next(iter(sorted(available, reverse=True)), _PREFERRED_MODELS[0])
         print(f"[NEXUS][MODEL] Last-resort model: {_resolved_model}")
         return _resolved_model
@@ -188,10 +186,9 @@ def cleanup(repo_path: str | None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. BULLETPROOF SAST SCANNER  (Requirement 1)
+# 3. BULLETPROOF SAST SCANNER
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Extended pattern library — covers Flask/Python common CVEs
 SAST_PATTERNS = {
     "Disabled SSL/TLS Verification":        r"verify\s*=\s*False",
     "Hardcoded Secret Key":                  r"(?i)(SECRET_KEY|secret_key)\s*=\s*['\"][^'\"]{4,}['\"]",
@@ -230,11 +227,7 @@ SKIP_DIRS = {
 
 
 def _read_file_safe(filepath: str) -> str | None:
-    """
-    Bulletproof file reader with encoding fallback chain.
-    Returns file content as string, or None if unreadable.
-    """
-    # Encoding fallback chain: utf-8 → latin-1 → ignore errors
+    """Bulletproof file reader with encoding fallback chain."""
     for encoding in ("utf-8", "latin-1"):
         try:
             with open(filepath, "r", encoding=encoding) as fh:
@@ -245,7 +238,6 @@ def _read_file_safe(filepath: str) -> str | None:
             print(f"[NEXUS][SAST] Cannot read {filepath}: {e}")
             return None
 
-    # Last resort: force-read ignoring all bad bytes
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as fh:
             return fh.read()
@@ -257,9 +249,8 @@ def _read_file_safe(filepath: str) -> str | None:
 def run_sast(repo_path: str) -> str:
     """
     Bulletproof SAST scanner.
-    - Aggressively traverses ALL subdirectories
-    - Multi-encoding fallback on every file
-    - Returns a JSON string of findings for the AI to analyse
+    Aggressively traverses ALL subdirectories with multi-encoding fallback.
+    Returns a JSON string of findings for the AI to analyse.
     """
     if not repo_path or not os.path.isdir(repo_path):
         return json.dumps({"error": "SAST Scan Failed: repo_path is invalid or missing."})
@@ -271,7 +262,6 @@ def run_sast(repo_path: str) -> str:
     print(f"[NEXUS][SAST] Starting scan on: {repo_path}")
 
     for dirpath, dirnames, filenames in os.walk(repo_path, topdown=True):
-        # Prune unwanted directories IN-PLACE so os.walk won't descend into them
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
 
         for filename in filenames:
@@ -280,7 +270,7 @@ def run_sast(repo_path: str) -> str:
                 continue
 
             filepath = os.path.join(dirpath, filename)
-            content = _read_file_safe(filepath)
+            content  = _read_file_safe(filepath)
 
             if content is None:
                 files_skipped += 1
@@ -301,15 +291,14 @@ def run_sast(repo_path: str) -> str:
                             )
                             findings.append(finding)
                     except re.error:
-                        # Malformed pattern — skip silently
                         continue
 
     summary = {
-        "scanner": "Nexus SAST Regex Engine v2",
-        "files_scanned": files_scanned,
+        "scanner":                "Nexus SAST Regex Engine v2",
+        "files_scanned":          files_scanned,
         "files_skipped_unreadable": files_skipped,
-        "total_findings": len(findings),
-        "findings": findings,
+        "total_findings":         len(findings),
+        "findings":               findings,
     }
 
     print(f"[NEXUS][SAST] Complete — scanned {files_scanned} files, "
@@ -319,23 +308,22 @@ def run_sast(repo_path: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. BULLETPROOF SCA SCANNER  (Requirement 1 — deep nested search)
+# 4. BULLETPROOF SCA SCANNER
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Known vulnerable pinned versions — extend as needed
 KNOWN_VULNERABLE = {
-    "flask":          [("< 2.3.0", "Upgrade to Flask>=2.3.3 (fixes CVE-2023-30861 cookie prefix bypass)")],
-    "pyyaml":         [("< 6.0",   "Upgrade to PyYAML>=6.0 to eliminate yaml.load() RCE risk")],
-    "django":         [("< 4.2",   "Upgrade to Django>=4.2.x for latest security patches")],
-    "requests":       [("< 2.31",  "Upgrade to requests>=2.31.0 to fix CVE-2023-32681 proxy credential leak")],
-    "pillow":         [("< 10.0",  "Upgrade to Pillow>=10.0.0 to address multiple CVEs")],
-    "cryptography":   [("< 41.0",  "Upgrade to cryptography>=41.0.0 for latest OpenSSL bindings")],
-    "urllib3":        [("< 2.0",   "Upgrade to urllib3>=2.0 to fix CVE-2023-43804 header injection")],
-    "werkzeug":       [("< 3.0",   "Upgrade to Werkzeug>=3.0.1 to fix CVE-2023-46136 DoS")],
-    "jinja2":         [("< 3.1.3", "Upgrade to Jinja2>=3.1.3 to fix CVE-2024-22195 XSS")],
-    "sqlalchemy":     [("< 2.0",   "Upgrade to SQLAlchemy>=2.0 for modern security defaults")],
-    "paramiko":       [("< 3.4",   "Upgrade to paramiko>=3.4.0 to fix MitM auth bypass")],
-    "twisted":        [("< 23.10", "Upgrade to Twisted>=23.10.0 to fix CVE-2023-46137")],
+    "flask":        [("< 2.3.0", "Upgrade to Flask>=2.3.3 (fixes CVE-2023-30861 cookie prefix bypass)")],
+    "pyyaml":       [("< 6.0",   "Upgrade to PyYAML>=6.0 to eliminate yaml.load() RCE risk")],
+    "django":       [("< 4.2",   "Upgrade to Django>=4.2.x for latest security patches")],
+    "requests":     [("< 2.31",  "Upgrade to requests>=2.31.0 to fix CVE-2023-32681 proxy credential leak")],
+    "pillow":       [("< 10.0",  "Upgrade to Pillow>=10.0.0 to address multiple CVEs")],
+    "cryptography": [("< 41.0",  "Upgrade to cryptography>=41.0.0 for latest OpenSSL bindings")],
+    "urllib3":      [("< 2.0",   "Upgrade to urllib3>=2.0 to fix CVE-2023-43804 header injection")],
+    "werkzeug":     [("< 3.0",   "Upgrade to Werkzeug>=3.0.1 to fix CVE-2023-46136 DoS")],
+    "jinja2":       [("< 3.1.3", "Upgrade to Jinja2>=3.1.3 to fix CVE-2024-22195 XSS")],
+    "sqlalchemy":   [("< 2.0",   "Upgrade to SQLAlchemy>=2.0 for modern security defaults")],
+    "paramiko":     [("< 3.4",   "Upgrade to paramiko>=3.4.0 to fix MitM auth bypass")],
+    "twisted":      [("< 23.10", "Upgrade to Twisted>=23.10.0 to fix CVE-2023-46137")],
 }
 
 
@@ -348,30 +336,28 @@ def _parse_requirements_file(filepath: str, repo_path: str) -> dict:
     dependencies = []
     for raw_line in content.splitlines():
         line = raw_line.strip()
-        # Skip blank lines, comments, and pip options like -r or --index-url
         if not line or line.startswith("#") or line.startswith("-"):
             continue
         dependencies.append(line)
 
     return {
-        "manifest_file": os.path.relpath(filepath, repo_path),
+        "manifest_file":    os.path.relpath(filepath, repo_path),
         "dependency_count": len(dependencies),
-        "dependencies": dependencies,
+        "dependencies":     dependencies,
     }
 
 
 def run_sca(repo_path: str) -> str:
     """
     Bulletproof SCA scanner.
-    - Deeply searches ALL subdirectories for requirements.txt
-    - Aggregates dependencies from every manifest found
-    - Flags known-vulnerable packages by name
+    Deeply searches ALL subdirectories for requirements.txt and flags
+    known-vulnerable packages by name.
     """
     if not repo_path or not os.path.isdir(repo_path):
         return json.dumps({"error": "SCA Scan Failed: repo_path is invalid or missing."})
 
-    manifests = []
-    vulnerability_hints = []
+    manifests            = []
+    vulnerability_hints  = []
 
     print(f"[NEXUS][SCA] Starting dependency scan on: {repo_path}")
 
@@ -379,25 +365,21 @@ def run_sca(repo_path: str) -> str:
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
 
         for filename in filenames:
-            # Scan all common dependency manifest filenames
             if filename.lower() not in (
                 "requirements.txt", "requirements-dev.txt",
                 "requirements-test.txt", "requirements-prod.txt",
             ):
                 continue
 
-            filepath = os.path.join(dirpath, filename)
+            filepath     = os.path.join(dirpath, filename)
             manifest_data = _parse_requirements_file(filepath, repo_path)
             manifests.append(manifest_data)
 
-            # Check each dep against known-vulnerable registry
             for dep_line in manifest_data.get("dependencies", []):
-                # Normalise: "Flask==0.12.2" → name="flask", version="0.12.2"
                 match = re.match(
                     r"^([A-Za-z0-9_\-\.]+)\s*([=<>!~]{1,3})\s*([\d\.]+)", dep_line
                 )
                 if not match:
-                    # Unpinned dep — still worth noting
                     pkg_name = re.split(r"[=<>!\s]", dep_line)[0].lower().strip()
                     if pkg_name in KNOWN_VULNERABLE:
                         vulnerability_hints.append(
@@ -407,7 +389,7 @@ def run_sca(repo_path: str) -> str:
                         )
                     continue
 
-                pkg_name = match.group(1).lower().strip()
+                pkg_name      = match.group(1).lower().strip()
                 pinned_version = match.group(3).strip()
 
                 if pkg_name in KNOWN_VULNERABLE:
@@ -420,7 +402,7 @@ def run_sca(repo_path: str) -> str:
 
     if not manifests:
         result = {
-            "scanner": "Nexus SCA Engine v2",
+            "scanner":        "Nexus SCA Engine v2",
             "manifests_found": 0,
             "message": (
                 "No requirements.txt found anywhere in the repository. "
@@ -429,10 +411,10 @@ def run_sca(repo_path: str) -> str:
         }
     else:
         result = {
-            "scanner": "Nexus SCA Engine v2",
-            "manifests_found": len(manifests),
+            "scanner":             "Nexus SCA Engine v2",
+            "manifests_found":     len(manifests),
             "vulnerability_hints": vulnerability_hints,
-            "manifests": manifests,
+            "manifests":           manifests,
         }
 
     print(f"[NEXUS][SCA] Complete — {len(manifests)} manifests found, "
@@ -442,7 +424,7 @@ def run_sca(repo_path: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5. A+ SYSTEM PROMPT  (Requirement 3)
+# 5. SYSTEM PROMPT
 # ─────────────────────────────────────────────────────────────────────────────
 
 NEXUS_SYSTEM_PROMPT = """\
@@ -500,35 +482,28 @@ no explanation outside the schema fields.\
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. DETERMINISTIC AI ANALYSIS ENGINE  (Requirement 2 — Loud Failure)
+# 6. AI ANALYSIS ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 
 def analyze_with_ai(sast_results: str, sca_results: str, repo_url: str) -> dict:
     """
     Invokes Gemini with structured output (Pydantic-enforced JSON).
-
-    On ANY failure — LLM crash, Pydantic validation error, quota exceeded, etc.
-    — this function returns a valid SecurityReport JSON containing a single
-    CRITICAL card titled 'SYS-ERR-500: Nexus AI Parsing Failure' with the full
-    Python exception in the analysis field. It NEVER silently returns 0 findings.
+    On ANY failure returns a valid SecurityReport JSON with a CRITICAL
+    SYS-ERR-500 card so the frontend never gets an empty report.
     """
 
     def _loud_failure(exception: Exception) -> dict:
-        """
-        Loud Failure fallback — always returns a valid SecurityReport shape
-        so the frontend can render it and the developer can see exactly what broke.
-        """
         error_detail = str(exception)
         print(f"[NEXUS][AI][LOUD FAILURE] {error_detail}")
         return {
-            "scan_status": "Failed — AI Parsing Error",
+            "scan_status":   "Failed — AI Parsing Error",
             "critical_count": 1,
-            "high_count": 0,
-            "medium_count": 0,
+            "high_count":     0,
+            "medium_count":   0,
             "vulnerabilities": [
                 {
-                    "id": "SYS-ERR-500",
-                    "title": "SYS-ERR-500: Nexus AI Parsing Failure",
+                    "id":       "SYS-ERR-500",
+                    "title":    "SYS-ERR-500: Nexus AI Parsing Failure",
                     "severity": "critical",
                     "analysis": (
                         "This vulnerability occurs when the Nexus AI engine crashes "
@@ -571,7 +546,7 @@ def analyze_with_ai(sast_results: str, sca_results: str, repo_url: str) -> dict:
         ),
     ])
 
-    # ── Initialize Gemini at Temperature = 0 for maximum determinism ─────────
+    # ── Initialize Gemini at Temperature = 0 ─────────────────────────────────
     try:
         model_name = _resolve_model()
         print(f"[NEXUS][AI] Using model: {model_name}")
@@ -581,7 +556,7 @@ def analyze_with_ai(sast_results: str, sca_results: str, repo_url: str) -> dict:
             google_api_key=os.environ.get("GEMINI_API_KEY"),
         )
         structured_llm = llm.with_structured_output(SecurityReport)
-        chain = prompt_template | structured_llm
+        chain          = prompt_template | structured_llm
     except Exception as init_err:
         return _loud_failure(init_err)
 
@@ -592,14 +567,13 @@ def analyze_with_ai(sast_results: str, sca_results: str, repo_url: str) -> dict:
             {
                 "repo_url": repo_url,
                 "sast_raw": sast_results,
-                "sca_raw": sca_results,
+                "sca_raw":  sca_results,
             }
         )
 
         result = report_obj.model_dump()
 
-        # Sanity-check: recount severities from the actual list in case the
-        # model's count fields are off (common LLM arithmetic mistake)
+        # Sanity-check severity counts (LLMs sometimes miscalculate)
         vulns = result.get("vulnerabilities", [])
         result["critical_count"] = sum(1 for v in vulns if v.get("severity") == "critical")
         result["high_count"]     = sum(1 for v in vulns if v.get("severity") == "high")
