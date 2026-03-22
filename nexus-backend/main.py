@@ -36,7 +36,8 @@ app.add_middleware(
 # ENVIRONMENT
 # ─────────────────────────────────────────────────────────────────────────────
 
-PDF_SERVICE_URL = os.environ.get("PDF_SERVICE_URL", "http://localhost:3001")
+PDF_SERVICE_URL = os.environ.get("PDF_SERVICE_URL", "http://localhost:3001").rstrip("/")
+print(f"[NEXUS] PDF_SERVICE_URL resolved to: {PDF_SERVICE_URL}", flush=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DATABASE SETUP
